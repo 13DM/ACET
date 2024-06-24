@@ -1,2 +1,0 @@
-Assetto_Corsa_Encryption_Tools.py
-ACUtils_Shader.py
