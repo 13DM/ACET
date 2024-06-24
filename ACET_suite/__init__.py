@@ -1,7 +1,7 @@
 bl_info = {
     "name": "ACET Suite",
     "author": "Dad",
-    "version": (2, 2, 1),
+    "version": (1, 0, 1),
     "blender": (3, 4, 0),
     "location": "View3D > Sidebar > ACET",
     "description": "The Assetto Corsa Encryption Tools suite with the main logic, and added utils for loading persistence in older blender versions.",

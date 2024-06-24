@@ -1,14 +1,14 @@
-bl_info = {
-    "name": "Assetto Corsa Encryption Tools",
-    "author": "Dad",
-    "version": (2, 2, 1),
-    "blender": (3, 4, 0),
-    "location": "View3D > Sidebar > ACET",
-    "description": "Toolset for use with NR imports for Encrypted files from AC. End to end tool for unencrypting cars.",
-    "warning": "",
-    "doc_url": "",
-    "category": "3D View",
-}
+#bl_info = {
+#    "name": "Assetto Corsa Encryption Tools",
+#    "author": "Dad",
+#    "version": (2, 3, 1),
+#    "blender": (3, 4, 0),
+#    "location": "View3D > Sidebar > ACET",
+#    "description": "Toolset for use with NR imports for Encrypted files from AC. End to end tool for unencrypting cars.",
+#    "warning": "",
+#    "doc_url": "",
+#    "category": "3D View",
+#}
 
 import bpy
 import os
@@ -23,10 +23,11 @@ from bpy.props import StringProperty
 
 # TODO / CHANGE LOG
 """
-2.3.0 unreleased
+2.3.1
+• [Added / Pending testing] Add additional functionality in NR processor to accept non acs.exe log files. Use case: Content manager attached processes will not have the same matrix details. (line 246)
+2.3.0 
 • [Untested but Added] Need to add image conversion to jpeg as this is a supported image type. As of now they are defaulting to dds.
 • [Added] Need to add functionality to rename materials to expected name. On occasion, they default to ".001" while renaming the "_old" material.
-• [] Add additional functionality in NR processor to accept non acs.exe log files. Use case: Content manager attached processes will not have the same matrix details. (line 246)
 2.2.1
 • A few bug fixes
 • Added a few functions to correct dummy parenting issues and a function to drop the numbering suffix due to how KN5 have a dummy for each mesh.
@@ -244,7 +245,7 @@ class OpenINIFilebrowser(Operator, ImportHelper):
 # references find_associated_files and _import_nr_mesh
 # Used to process the log file and get the matrixes and options for importing the mesh
 def process_file(filepath):
-    matrix_pattern = r"float4x4 ksProjection_base = (\[\[.+?\]\])"
+    matrix_pattern = r"float4x4 ksProjection_base = (\[\[.+?\]\])|float4x4 gViewProj = (\[\[.+?\]\])"
     mesh_info_pattern = r"Mesh\(s\) saved\. File: (.+?\\mesh_(\d+)\.nr)"
     line_to_matrix = {}
     line_to_file = {}
