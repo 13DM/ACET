@@ -1,7 +1,7 @@
 #bl_info = {
 #    "name": "Assetto Corsa Encryption Tools",
 #    "author": "Dad",
-#    "version": (2, 2, 1),
+#    "version": (2, 3, 0),
 #    "blender": (3, 4, 0),
 #    "location": "View3D > Sidebar > ACET",
 #    "description": "Toolset for use with NR imports for Encrypted files from AC. End to end tool for unencrypting cars.",
@@ -26,7 +26,7 @@ from bpy.props import StringProperty
 2.3.0 unreleased
 • [Untested but Added] Need to add image conversion to jpeg as this is a supported image type. As of now they are defaulting to dds.
 • [Added] Need to add functionality to rename materials to expected name. On occasion, they default to ".001" while renaming the "_old" material.
-• [] Add additional functionality in NR processor to accept non acs.exe log files. Use case: Content manager attached processes will not have the same matrix details. (line 246)
+• [Need to further test still] Add additional functionality in NR processor to accept non acs.exe log files. Use case: Content manager attached processes will not have the same matrix details. (line 246)
 2.2.1
 • A few bug fixes
 • Added a few functions to correct dummy parenting issues and a function to drop the numbering suffix due to how KN5 have a dummy for each mesh.
