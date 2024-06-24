@@ -1,14 +1,14 @@
-bl_info = {
-    "name": "Assetto Corsa Encryption Tools",
-    "author": "Dad",
-    "version": (2, 2, 1),
-    "blender": (3, 4, 0),
-    "location": "View3D > Sidebar > ACET",
-    "description": "Toolset for use with NR imports for Encrypted files from AC. End to end tool for unencrypting cars.",
-    "warning": "",
-    "doc_url": "",
-    "category": "3D View",
-}
+#bl_info = {
+#    "name": "Assetto Corsa Encryption Tools",
+#    "author": "Dad",
+#    "version": (2, 2, 1),
+#    "blender": (3, 4, 0),
+#    "location": "View3D > Sidebar > ACET",
+#    "description": "Toolset for use with NR imports for Encrypted files from AC. End to end tool for unencrypting cars.",
+#    "warning": "",
+#    "doc_url": "",
+#    "category": "3D View",
+#}
 
 import bpy
 import os
