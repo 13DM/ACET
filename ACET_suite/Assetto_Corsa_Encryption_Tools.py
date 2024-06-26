@@ -1,7 +1,7 @@
 #bl_info = {
 #    "name": "Assetto Corsa Encryption Tools",
 #    "author": "Dad",
-#    "version": (2, 3, 1),
+#    "version": (2, 3, 2),
 #    "blender": (3, 4, 0),
 #    "location": "View3D > Sidebar > ACET",
 #    "description": "Toolset for use with NR imports for Encrypted files from AC. End to end tool for unencrypting cars.",
@@ -23,8 +23,10 @@ from bpy.props import StringProperty
 
 # TODO / CHANGE LOG
 """
+2.3.2
+• [Added / Pending testing] Better exception and error handling for ini application. Need to test further but the end goal is to apply what it can and tell you what it can without erroring.
 2.3.1
-• [Added / Pending testing] Add additional functionality in NR processor to accept non acs.exe log files. Use case: Content manager attached processes will not have the same matrix details. (line 246)
+• [Added] Add additional functionality in NR processor to accept non acs.exe log files. Use case: Content manager attached processes will not have the same matrix details. (line 246)
 2.3.0 
 • [Untested but Added] Need to add image conversion to jpeg as this is a supported image type. As of now they are defaulting to dds.
 • [Added] Need to add functionality to rename materials to expected name. On occasion, they default to ".001" while renaming the "_old" material.
@@ -1015,6 +1017,12 @@ def apply_material_settings_from_ini(material_data):
             if _currentMat is None:
                 continue
             
+            # Add in additional logic to check the material being used.
+            material_used = any(obj for obj in bpy.data.objects if _currentMat in obj.data.materials)
+            if not material_used:
+                print(f"Material '{_currentMatName}' not used on any mesh object. Skipping.")
+                continue
+            
             _currentShader = value.get('SHADER')
             # Fix Alpha Blend Value as boolean
             _currentAlphaBlend = False
@@ -1196,403 +1204,83 @@ def apply_material_settings_from_ini(material_data):
                     print(f"Image Texture.008: {node}")
                 if node.name == "Image Texture.009":
                     img_tex_10_node = node
-                
-            #apply the shader socket connections
-            if _currentAlphaBlend == True:
-                _currentMat.blend_method = "BLEND"
-                _currentMat.show_transparent_back = 0
-                if _useDetail == True:
-                    links.new(alpha_mix_node.outputs[0], principled_bsdf_node.inputs['Alpha'])
-                else:
-                    links.new(img_tex_1_node.outputs['Alpha'], principled_bsdf_node.inputs['Alpha'])
-            if _currentAlphaTest == True:
-                _currentMat.blend_method = "HASHED"
-                _currentMat.show_transparent_back = 0
-                if _useDetail == True:
-                    links.new(alpha_mix_node.outputs[0], principled_bsdf_node.inputs['Alpha'])
-                else:
-                    links.new(img_tex_1_node.outputs['Alpha'], principled_bsdf_node.inputs['Alpha'])
+                    
+            # Additionally add in logic for try catch
+            # This is so that if there is an issue processing a material, it will continue working on it. 
+            # This is to avoid issue when working with bad models or materials from rips and mods
             
-            if int(_currentTextureCount) == 1:
-                links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
+            try:
+            
                 
-                rename_images(img_tex_1_node, tex_names[0])
-            if int(_currentTextureCount) == 2:
-                if _currentShader not in ("ksGrass", "ksPostFOG_MS"):
-                    links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
-                    
-                    links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
-                    links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
-                    
-                    img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
-                
-                    rename_images(img_tex_1_node, tex_names[0])
-                    rename_images(img_tex_2_node, tex_names[1])
-                if _currentShader != "ksPerPixelNM_UVMult":
-                    print(f"WARN: Shader type: {_currentShader} utilizes multipliers which are not configured for the base color or normal texture.")
-            if int(_currentTextureCount) == 3:
-                if _currentShader == "ksPerPixelAT_NM_emissive":
-                    links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
-                    
-                    links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
-                    links.new(img_tex_2_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
-                    
-                    img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
-                    
-                    links.new(img_tex_3_node.outputs['Color'], principled_bsdf_node.inputs['Emission'])
-                
-                    rename_images(img_tex_1_node, tex_names[0])
-                    rename_images(img_tex_2_node, tex_names[1])
-                    rename_images(img_tex_3_node, tex_names[2])
-                if _currentShader == "ksPerPixel_dual_layer":
-                    links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
-                
-                    rename_images(img_tex_1_node, tex_names[0])
-                    rename_images(img_tex_2_node, tex_names[1])
-                    rename_images(img_tex_3_node, tex_names[2])
-                    print(f"WARN: Shader type: {_currentShader} utilizes layers and mask which are not configured for the shader. Mapping original color only.")
-                if _currentShader == "ksPerPixelAT_NM_emissive":
-                    links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
-                    
-                    links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
-                    links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
-                    
-                    img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
-                
-                    rename_images(img_tex_1_node, tex_names[0])
-                    rename_images(img_tex_2_node, tex_names[1])
-                    rename_images(img_tex_3_node, tex_names[2])
-                    print(f"WARN: Shader type: {_currentShader} utilizes multipliers which are not configured for the base color or normal texture.")
-            if int(_currentTextureCount) == 4:
-                # IsDetail true map the base colors to the mix nodes
-                if _useDetail == True:
-                    # Base Color
-                    links.new(img_tex_1_node.outputs['Color'], detail_mix_node.inputs[6])
-                    links.new(img_tex_1_node.outputs['Alpha'], alpha_mix_node.inputs[2])
-                    
-                    links.new(img_tex_4_node.outputs['Color'], detail_mix_node.inputs[7])
-                    links.new(img_tex_4_node.outputs['Alpha'], alpha_mix_node.inputs[3])
-                    
-                    alpha_mix_node.inputs[0].default_value = 0.95
-                    
-                    links.new(alpha_mix_node.outputs[0], detail_mix_node.inputs[0])
-                    links.new(detail_mix_node.outputs[2], principled_bsdf_node.inputs['Base Color'])
-                    
-                    # Normal
-                    links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
-                    links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
-                    
-                    img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
-                    
-                    # Texture Map
-                    links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
-                    
-                    links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
-                    links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
-                    links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
-                    
-                    links.new(separate_color_node.outputs[1], math1_node.inputs[0])
-                    links.new(separate_color_node.outputs[2], math2_node.inputs[0])
-                    
-                    img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
-                    
-                    # Detail 
-                    links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
-                    links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
-                    links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
-                    
-                    if _currentDetailMult is None:
-                        detail_mult_node.outputs[0].default_value = 1.0
+                #apply the shader socket connections
+                if _currentAlphaBlend == True:
+                    _currentMat.blend_method = "BLEND"
+                    _currentMat.show_transparent_back = 0
+                    if _useDetail == True:
+                        links.new(alpha_mix_node.outputs[0], principled_bsdf_node.inputs['Alpha'])
                     else:
-                        detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
-                else:
-                    # Base Color
+                        links.new(img_tex_1_node.outputs['Alpha'], principled_bsdf_node.inputs['Alpha'])
+                if _currentAlphaTest == True:
+                    _currentMat.blend_method = "HASHED"
+                    _currentMat.show_transparent_back = 0
+                    if _useDetail == True:
+                        links.new(alpha_mix_node.outputs[0], principled_bsdf_node.inputs['Alpha'])
+                    else:
+                        links.new(img_tex_1_node.outputs['Alpha'], principled_bsdf_node.inputs['Alpha'])
+                
+                if int(_currentTextureCount) == 1:
                     links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
                     
-                    # Normal
-                    links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
-                    links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
-                    
-                    img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
-                    
-                    # Texture Map
-                    links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
-                    
-                    links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
-                    links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
-                    links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
-                    
-                    links.new(separate_color_node.outputs[1], math1_node.inputs[0])
-                    links.new(separate_color_node.outputs[2], math2_node.inputs[0])
-                    
-                    img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
-                    
-                    # Detail 
-                    links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
-                    links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
-                    links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
-                    
-                    if _currentDetailMult is None:
-                        detail_mult_node.outputs[0].default_value = 1.0
-                    else:
-                        detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
-                
-                rename_images(img_tex_1_node, tex_names[0])
-                rename_images(img_tex_2_node, tex_names[1])
-                rename_images(img_tex_3_node, tex_names[2])
-                rename_images(img_tex_4_node, tex_names[3])
-            if int(_currentTextureCount) == 5:
-                # IsDetail true map the base colors to the mix nodes
-                if _useDetail == True:
-                    if _currentShader in ("ksDiscBrake", "ksTyres"):
+                    rename_images(img_tex_1_node, tex_names[0])
+                if int(_currentTextureCount) == 2:
+                    if _currentShader not in ("ksGrass", "ksPostFOG_MS"):
                         links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
+                        
+                        links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
+                        links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
+                        
+                        img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
                     
+                        rename_images(img_tex_1_node, tex_names[0])
+                        rename_images(img_tex_2_node, tex_names[1])
+                    if _currentShader != "ksPerPixelNM_UVMult":
+                        print(f"WARN: Shader type: {_currentShader} utilizes multipliers which are not configured for the base color or normal texture.")
+                if int(_currentTextureCount) == 3:
+                    if _currentShader == "ksPerPixelAT_NM_emissive":
+                        links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
+                        
                         links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
                         links.new(img_tex_2_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
+                        
+                        img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
+                        
+                        links.new(img_tex_3_node.outputs['Color'], principled_bsdf_node.inputs['Emission'])
                     
-                        img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
-                    elif _currentShader == "ksPerPixelMultiMap_emissive":
-                        # Base Color
-                        links.new(img_tex_1_node.outputs['Color'], detail_mix_node.inputs[6])
-                        links.new(img_tex_1_node.outputs['Alpha'], alpha_mix_node.inputs[2])
+                        rename_images(img_tex_1_node, tex_names[0])
+                        rename_images(img_tex_2_node, tex_names[1])
+                        rename_images(img_tex_3_node, tex_names[2])
+                    if _currentShader == "ksPerPixel_dual_layer":
+                        links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
+                    
+                        rename_images(img_tex_1_node, tex_names[0])
+                        rename_images(img_tex_2_node, tex_names[1])
+                        rename_images(img_tex_3_node, tex_names[2])
+                        print(f"WARN: Shader type: {_currentShader} utilizes layers and mask which are not configured for the shader. Mapping original color only.")
+                    if _currentShader == "ksPerPixelAT_NM_emissive":
+                        links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
                         
-                        links.new(img_tex_4_node.outputs['Color'], detail_mix_node.inputs[7])
-                        links.new(img_tex_4_node.outputs['Alpha'], alpha_mix_node.inputs[3])
-                        
-                        alpha_mix_node.inputs[0].default_value = 0.95
-                        
-                        links.new(alpha_mix_node.outputs[0], detail_mix_node.inputs[0])
-                        links.new(detail_mix_node.outputs[2], principled_bsdf_node.inputs['Base Color'])
-                        
-                        # Normal
                         links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
                         links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
                         
                         img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
-                        
-                        # Texture Map
-                        links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
-                        
-                        links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
-                        links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
-                        links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
-                        
-                        links.new(separate_color_node.outputs[1], math1_node.inputs[0])
-                        links.new(separate_color_node.outputs[2], math2_node.inputs[0])
-                        
-                        img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
-                        
-                        # Detail 
-                        links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
-                        links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
-                        links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
-                        
-                        detail_mult_node.outputs[0].default_value = float(_currentDetailMult)   
-                        
-                        # Emission
-                        links.new(img_tex_5_node.outputs['Color'], principled_bsdf_node.inputs['Emission'])
-                        
-                    elif _currentShader == "ksPerPixelMultiMap_AT_emissive":
-                        # Base Color
-                        links.new(img_tex_1_node.outputs['Color'], detail_mix_node.inputs[6])
-                        links.new(img_tex_1_node.outputs['Alpha'], alpha_mix_node.inputs[2])
-                        
-                        links.new(img_tex_4_node.outputs['Color'], detail_mix_node.inputs[7])
-                        links.new(img_tex_4_node.outputs['Alpha'], alpha_mix_node.inputs[3])
-                        
-                        alpha_mix_node.inputs[0].default_value = 0.95
-                        
-                        links.new(alpha_mix_node.outputs[0], detail_mix_node.inputs[0])
-                        links.new(detail_mix_node.outputs[2], principled_bsdf_node.inputs['Base Color'])
-                        
-                        # Normal
-                        links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
-                        links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
-                        
-                        img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
-                        
-                        # Texture Map
-                        links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
-                        
-                        links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
-                        links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
-                        links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
-                        
-                        links.new(separate_color_node.outputs[1], math1_node.inputs[0])
-                        links.new(separate_color_node.outputs[2], math2_node.inputs[0])
-                        
-                        img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
-                        
-                        # Detail 
-                        links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
-                        links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
-                        links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
-                        
-                        # Emission
-                        links.new(img_tex_5_node.outputs['Color'], principled_bsdf_node.inputs['Emission'])
-                        
-                        detail_mult_node.outputs[0].default_value = float(_currentDetailMult)    
-                        
-                    elif _currentShader in ("ksPerPixelMultiMap_NMDetail", "ksSkinnedMesh_NMDetaill"):
-                        # Base Color
-                        links.new(img_tex_1_node.outputs['Color'], detail_mix_node.inputs[6])
-                        links.new(img_tex_1_node.outputs['Alpha'], alpha_mix_node.inputs[2])
-                        
-                        links.new(img_tex_4_node.outputs['Color'], detail_mix_node.inputs[7])
-                        links.new(img_tex_4_node.outputs['Alpha'], alpha_mix_node.inputs[3])
-                        
-                        alpha_mix_node.inputs[0].default_value = 0.95
-                        
-                        links.new(alpha_mix_node.outputs[0], detail_mix_node.inputs[0])
-                        links.new(detail_mix_node.outputs[2], principled_bsdf_node.inputs['Base Color'])
-                        
-                        # Normal
-                        links.new(img_tex_2_node.outputs['Color'], detail_normal_mix_node.inputs[6])
-                        links.new(img_tex_5_node.outputs['Color'], detail_normal_mix_node.inputs[7])
-                        
-                        links.new(detail_normal_mix_node.outputs[2], normal_map_node.inputs['Color'])
-                        
-                        links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
-                        
-                        img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
-                        img_tex_5_node.image.colorspace_settings.name = 'Non-Color'
-                        
-                        # Texture Map
-                        links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
-                        
-                        links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
-                        links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
-                        links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
-                        
-                        links.new(separate_color_node.outputs[1], math1_node.inputs[0])
-                        links.new(separate_color_node.outputs[2], math2_node.inputs[0])
-                        
-                        img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
-                        
-                        # Detail 
-                        links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
-                        links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
-                        links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
-                        
-                        if _currentDetailMult is None:
-                            detail_mult_node.outputs[0].default_value = 1.0
-                        else:
-                            detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
-                        
-                        links.new(pbr_mapping_node.outputs['Vector'], img_tex_5_node.inputs['Vector'])
-                        links.new(pbr_tc_node.outputs['UV'], pbr_mapping_node.inputs['Vector'])
-                        links.new(pbr_mult_node.outputs['Value'], pbr_mapping_node.inputs['Scale'])
-                        
-                        detail_normal_mix_node.inputs[0].default_value = float(_currentDetailNormalBlend)
-                        
-                        pbr_mult_node.outputs[0].default_value = float(_currentDetailMult)
-                        
-                        
-                    elif _currentShader == "smSticker":
-                        # Base Color
-                        links.new(img_tex_1_node.outputs['Color'], detail_mix_node.inputs[6])
-                        links.new(img_tex_1_node.outputs['Alpha'], alpha_mix_node.inputs[2])
-                        
-                        links.new(img_tex_4_node.outputs['Color'], detail_mix_node.inputs[7])
-                        links.new(img_tex_4_node.outputs['Alpha'], alpha_mix_node.inputs[3])
-                        
-                        alpha_mix_node.inputs[0].default_value = 0.95
-                        
-                        links.new(alpha_mix_node.outputs[0], detail_mix_node.inputs[0])
-                        links.new(detail_mix_node.outputs[2], principled_bsdf_node.inputs['Base Color'])
-                        
-                        # Normal
-                        links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
-                        
-                        links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
-                        
-                        img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
-                        
-                        # Texture Map
-                        links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
-                        
-                        links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
-                        links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
-                        links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
-                        
-                        links.new(separate_color_node.outputs[1], math1_node.inputs[0])
-                        links.new(separate_color_node.outputs[2], math2_node.inputs[0])
-                        
-                        img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
-                        
-                        # Detail 
-                        links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
-                        links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
-                        links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
-                        
-                        if _currentDetailMult is None:
-                            detail_mult_node.outputs[0].default_value = 1.0
-                        else:
-                            detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
-                        
-                        links.new(pbr_mapping_node.outputs['Vector'], img_tex_2_node.inputs['Vector'])
-                        links.new(pbr_tc_node.outputs['UV'], pbr_mapping_node.inputs['Vector'])
-                        links.new(pbr_mult_node.outputs['Value'], pbr_mapping_node.inputs['Scale'])
-                        
-                        pbr_mult_node.outputs[0].default_value = float(_currentDetailNMMult)
-                        
-                        
-                    elif _currentShader == "ksPerPixelMultiMap_AT_NMDetail":
-                        # Base Color
-                        links.new(img_tex_1_node.outputs['Color'], detail_mix_node.inputs[6])
-                        links.new(img_tex_1_node.outputs['Alpha'], alpha_mix_node.inputs[2])
-                        
-                        links.new(img_tex_4_node.outputs['Color'], detail_mix_node.inputs[7])
-                        links.new(img_tex_4_node.outputs['Alpha'], alpha_mix_node.inputs[3])
-                        
-                        alpha_mix_node.inputs[0].default_value = 0.95
-                        
-                        links.new(alpha_mix_node.outputs[0], detail_mix_node.inputs[0])
-                        links.new(detail_mix_node.outputs[2], principled_bsdf_node.inputs['Base Color'])
-                        
-                        # Normal
-                        links.new(img_tex_2_node.outputs['Color'], detail_normal_mix_node.inputs[6])
-                        links.new(img_tex_5_node.outputs['Color'], detail_normal_mix_node.inputs[7])
-                        
-                        links.new(detail_normal_mix_node.outputs[2], normal_map_node.inputs['Color'])
-                        
-                        links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
-                        
-                        img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
-                        img_tex_5_node.image.colorspace_settings.name = 'Non-Color'
-                        
-                        # Texture Map
-                        links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
-                        
-                        links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
-                        links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
-                        links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
-                        
-                        links.new(separate_color_node.outputs[1], math1_node.inputs[0])
-                        links.new(separate_color_node.outputs[2], math2_node.inputs[0])
-                        
-                        img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
-                        
-                        # Detail 
-                        links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
-                        links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
-                        links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
-                        
-                        if _currentDetailMult is None:
-                            detail_mult_node.outputs[0].default_value = 1.0
-                        else:
-                            detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
-                        
-                        links.new(pbr_mapping_node.outputs['Vector'], img_tex_5_node.inputs['Vector'])
-                        links.new(pbr_tc_node.outputs['UV'], pbr_mapping_node.inputs['Vector'])
-                        links.new(pbr_mult_node.outputs['Value'], pbr_mapping_node.inputs['Scale'])
-                        
-                        detail_normal_mix_node.inputs[0].default_value = float(_currentDetailNormalBlend)
-                        
-                        pbr_mult_node.outputs[0].default_value = float(_currentDetailNMMult)
-                        
-                        
-                    elif _currentShader == "ksPerPixelMultiMap_damage":
+                    
+                        rename_images(img_tex_1_node, tex_names[0])
+                        rename_images(img_tex_2_node, tex_names[1])
+                        rename_images(img_tex_3_node, tex_names[2])
+                        print(f"WARN: Shader type: {_currentShader} utilizes multipliers which are not configured for the base color or normal texture.")
+                if int(_currentTextureCount) == 4:
+                    # IsDetail true map the base colors to the mix nodes
+                    if _useDetail == True:
                         # Base Color
                         links.new(img_tex_1_node.outputs['Color'], detail_mix_node.inputs[6])
                         links.new(img_tex_1_node.outputs['Alpha'], alpha_mix_node.inputs[2])
@@ -1632,104 +1320,434 @@ def apply_material_settings_from_ini(material_data):
                             detail_mult_node.outputs[0].default_value = 1.0
                         else:
                             detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
-                else:
-                    # Base Color
-                    links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
-                    
-                    # Normal
-                    links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
-                    links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
-                    
-                    img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
-                    
-                    # Texture Map
-                    links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
-                    
-                    links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
-                    links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
-                    links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
-                    
-                    links.new(separate_color_node.outputs[1], math1_node.inputs[0])
-                    links.new(separate_color_node.outputs[2], math2_node.inputs[0])
-                    
-                    img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
-                    
-                    # Detail 
-                    links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
-                    links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
-                    links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
-                    
-                    if _currentDetailMult is None:
-                        detail_mult_node.outputs[0].default_value = 1.0
                     else:
-                        detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
-                
-                rename_images(img_tex_1_node, tex_names[0])
-                rename_images(img_tex_2_node, tex_names[1])
-                rename_images(img_tex_3_node, tex_names[2])
-                rename_images(img_tex_4_node, tex_names[3])
-                rename_images(img_tex_5_node, tex_names[4])
-                
-            #if int(_currentTextureCount) > 5:
-            if int(_currentTextureCount) == 6:
-                print(f"Currently unsupported amount of textures. Renaming of files will still occur but no shader details will be setup.")
-                
-                rename_images(img_tex_1_node, tex_names[0])
-                rename_images(img_tex_2_node, tex_names[1])
-                rename_images(img_tex_3_node, tex_names[2])
-                rename_images(img_tex_4_node, tex_names[3])
-                rename_images(img_tex_5_node, tex_names[4])
-                rename_images(img_tex_6_node, tex_names[5])
-                
-            if int(_currentTextureCount) == 7:
-                print(f"Currently unsupported amount of textures. Renaming of files will still occur but no shader details will be setup.")
-                
-                rename_images(img_tex_1_node, tex_names[0])
-                rename_images(img_tex_2_node, tex_names[1])
-                rename_images(img_tex_3_node, tex_names[2])
-                rename_images(img_tex_4_node, tex_names[3])
-                rename_images(img_tex_5_node, tex_names[4])
-                rename_images(img_tex_6_node, tex_names[5])
-                rename_images(img_tex_7_node, tex_names[6])
-                
-            if int(_currentTextureCount) == 8:
-                print(f"Currently unsupported amount of textures. Renaming of files will still occur but no shader details will be setup.")
-                
-                rename_images(img_tex_1_node, tex_names[0])
-                rename_images(img_tex_2_node, tex_names[1])
-                rename_images(img_tex_3_node, tex_names[2])
-                rename_images(img_tex_4_node, tex_names[3])
-                rename_images(img_tex_5_node, tex_names[4])
-                rename_images(img_tex_6_node, tex_names[5])
-                rename_images(img_tex_7_node, tex_names[6])
-                rename_images(img_tex_8_node, tex_names[7])
-                
-            if int(_currentTextureCount) == 9:
-                print(f"Currently unsupported amount of textures. Renaming of files will still occur but no shader details will be setup.")
-                
-                rename_images(img_tex_1_node, tex_names[0])
-                rename_images(img_tex_2_node, tex_names[1])
-                rename_images(img_tex_3_node, tex_names[2])
-                rename_images(img_tex_4_node, tex_names[3])
-                rename_images(img_tex_5_node, tex_names[4])
-                rename_images(img_tex_6_node, tex_names[5])
-                rename_images(img_tex_7_node, tex_names[6])
-                rename_images(img_tex_8_node, tex_names[7])
-                rename_images(img_tex_9_node, tex_names[8])
-                
-            if int(_currentTextureCount) == 10:
-                print(f"Currently unsupported amount of textures. Renaming of files will still occur but no shader details will be setup.")
-                
-                rename_images(img_tex_1_node, tex_names[0])
-                rename_images(img_tex_2_node, tex_names[1])
-                rename_images(img_tex_3_node, tex_names[2])
-                rename_images(img_tex_4_node, tex_names[3])
-                rename_images(img_tex_5_node, tex_names[4])
-                rename_images(img_tex_6_node, tex_names[5])
-                rename_images(img_tex_7_node, tex_names[6])
-                rename_images(img_tex_8_node, tex_names[7])
-                rename_images(img_tex_9_node, tex_names[8])
-                rename_images(img_tex_10_node, tex_names[9])
+                        # Base Color
+                        links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
+                        
+                        # Normal
+                        links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
+                        links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
+                        
+                        img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
+                        
+                        # Texture Map
+                        links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
+                        
+                        links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
+                        links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
+                        links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
+                        
+                        links.new(separate_color_node.outputs[1], math1_node.inputs[0])
+                        links.new(separate_color_node.outputs[2], math2_node.inputs[0])
+                        
+                        img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
+                        
+                        # Detail 
+                        links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
+                        links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
+                        links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
+                        
+                        if _currentDetailMult is None:
+                            detail_mult_node.outputs[0].default_value = 1.0
+                        else:
+                            detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
+                    
+                    rename_images(img_tex_1_node, tex_names[0])
+                    rename_images(img_tex_2_node, tex_names[1])
+                    rename_images(img_tex_3_node, tex_names[2])
+                    rename_images(img_tex_4_node, tex_names[3])
+                if int(_currentTextureCount) == 5:
+                    # IsDetail true map the base colors to the mix nodes
+                    if _useDetail == True:
+                        if _currentShader in ("ksDiscBrake", "ksTyres"):
+                            links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
+                        
+                            links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
+                            links.new(img_tex_2_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
+                        
+                            img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
+                        elif _currentShader == "ksPerPixelMultiMap_emissive":
+                            # Base Color
+                            links.new(img_tex_1_node.outputs['Color'], detail_mix_node.inputs[6])
+                            links.new(img_tex_1_node.outputs['Alpha'], alpha_mix_node.inputs[2])
+                            
+                            links.new(img_tex_4_node.outputs['Color'], detail_mix_node.inputs[7])
+                            links.new(img_tex_4_node.outputs['Alpha'], alpha_mix_node.inputs[3])
+                            
+                            alpha_mix_node.inputs[0].default_value = 0.95
+                            
+                            links.new(alpha_mix_node.outputs[0], detail_mix_node.inputs[0])
+                            links.new(detail_mix_node.outputs[2], principled_bsdf_node.inputs['Base Color'])
+                            
+                            # Normal
+                            links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
+                            links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
+                            
+                            img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
+                            
+                            # Texture Map
+                            links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
+                            
+                            links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
+                            links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
+                            links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
+                            
+                            links.new(separate_color_node.outputs[1], math1_node.inputs[0])
+                            links.new(separate_color_node.outputs[2], math2_node.inputs[0])
+                            
+                            img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
+                            
+                            # Detail 
+                            links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
+                            links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
+                            links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
+                            
+                            detail_mult_node.outputs[0].default_value = float(_currentDetailMult)   
+                            
+                            # Emission
+                            links.new(img_tex_5_node.outputs['Color'], principled_bsdf_node.inputs['Emission'])
+                            
+                        elif _currentShader == "ksPerPixelMultiMap_AT_emissive":
+                            # Base Color
+                            links.new(img_tex_1_node.outputs['Color'], detail_mix_node.inputs[6])
+                            links.new(img_tex_1_node.outputs['Alpha'], alpha_mix_node.inputs[2])
+                            
+                            links.new(img_tex_4_node.outputs['Color'], detail_mix_node.inputs[7])
+                            links.new(img_tex_4_node.outputs['Alpha'], alpha_mix_node.inputs[3])
+                            
+                            alpha_mix_node.inputs[0].default_value = 0.95
+                            
+                            links.new(alpha_mix_node.outputs[0], detail_mix_node.inputs[0])
+                            links.new(detail_mix_node.outputs[2], principled_bsdf_node.inputs['Base Color'])
+                            
+                            # Normal
+                            links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
+                            links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
+                            
+                            img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
+                            
+                            # Texture Map
+                            links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
+                            
+                            links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
+                            links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
+                            links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
+                            
+                            links.new(separate_color_node.outputs[1], math1_node.inputs[0])
+                            links.new(separate_color_node.outputs[2], math2_node.inputs[0])
+                            
+                            img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
+                            
+                            # Detail 
+                            links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
+                            links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
+                            links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
+                            
+                            # Emission
+                            links.new(img_tex_5_node.outputs['Color'], principled_bsdf_node.inputs['Emission'])
+                            
+                            detail_mult_node.outputs[0].default_value = float(_currentDetailMult)    
+                            
+                        elif _currentShader in ("ksPerPixelMultiMap_NMDetail", "ksSkinnedMesh_NMDetaill"):
+                            # Base Color
+                            links.new(img_tex_1_node.outputs['Color'], detail_mix_node.inputs[6])
+                            links.new(img_tex_1_node.outputs['Alpha'], alpha_mix_node.inputs[2])
+                            
+                            links.new(img_tex_4_node.outputs['Color'], detail_mix_node.inputs[7])
+                            links.new(img_tex_4_node.outputs['Alpha'], alpha_mix_node.inputs[3])
+                            
+                            alpha_mix_node.inputs[0].default_value = 0.95
+                            
+                            links.new(alpha_mix_node.outputs[0], detail_mix_node.inputs[0])
+                            links.new(detail_mix_node.outputs[2], principled_bsdf_node.inputs['Base Color'])
+                            
+                            # Normal
+                            links.new(img_tex_2_node.outputs['Color'], detail_normal_mix_node.inputs[6])
+                            links.new(img_tex_5_node.outputs['Color'], detail_normal_mix_node.inputs[7])
+                            
+                            links.new(detail_normal_mix_node.outputs[2], normal_map_node.inputs['Color'])
+                            
+                            links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
+                            
+                            img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
+                            img_tex_5_node.image.colorspace_settings.name = 'Non-Color'
+                            
+                            # Texture Map
+                            links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
+                            
+                            links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
+                            links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
+                            links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
+                            
+                            links.new(separate_color_node.outputs[1], math1_node.inputs[0])
+                            links.new(separate_color_node.outputs[2], math2_node.inputs[0])
+                            
+                            img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
+                            
+                            # Detail 
+                            links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
+                            links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
+                            links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
+                            
+                            if _currentDetailMult is None:
+                                detail_mult_node.outputs[0].default_value = 1.0
+                            else:
+                                detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
+                            
+                            links.new(pbr_mapping_node.outputs['Vector'], img_tex_5_node.inputs['Vector'])
+                            links.new(pbr_tc_node.outputs['UV'], pbr_mapping_node.inputs['Vector'])
+                            links.new(pbr_mult_node.outputs['Value'], pbr_mapping_node.inputs['Scale'])
+                            
+                            detail_normal_mix_node.inputs[0].default_value = float(_currentDetailNormalBlend)
+                            
+                            pbr_mult_node.outputs[0].default_value = float(_currentDetailMult)
+                            
+                            
+                        elif _currentShader == "smSticker":
+                            # Base Color
+                            links.new(img_tex_1_node.outputs['Color'], detail_mix_node.inputs[6])
+                            links.new(img_tex_1_node.outputs['Alpha'], alpha_mix_node.inputs[2])
+                            
+                            links.new(img_tex_4_node.outputs['Color'], detail_mix_node.inputs[7])
+                            links.new(img_tex_4_node.outputs['Alpha'], alpha_mix_node.inputs[3])
+                            
+                            alpha_mix_node.inputs[0].default_value = 0.95
+                            
+                            links.new(alpha_mix_node.outputs[0], detail_mix_node.inputs[0])
+                            links.new(detail_mix_node.outputs[2], principled_bsdf_node.inputs['Base Color'])
+                            
+                            # Normal
+                            links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
+                            
+                            links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
+                            
+                            img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
+                            
+                            # Texture Map
+                            links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
+                            
+                            links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
+                            links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
+                            links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
+                            
+                            links.new(separate_color_node.outputs[1], math1_node.inputs[0])
+                            links.new(separate_color_node.outputs[2], math2_node.inputs[0])
+                            
+                            img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
+                            
+                            # Detail 
+                            links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
+                            links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
+                            links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
+                            
+                            if _currentDetailMult is None:
+                                detail_mult_node.outputs[0].default_value = 1.0
+                            else:
+                                detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
+                            
+                            links.new(pbr_mapping_node.outputs['Vector'], img_tex_2_node.inputs['Vector'])
+                            links.new(pbr_tc_node.outputs['UV'], pbr_mapping_node.inputs['Vector'])
+                            links.new(pbr_mult_node.outputs['Value'], pbr_mapping_node.inputs['Scale'])
+                            
+                            pbr_mult_node.outputs[0].default_value = float(_currentDetailNMMult)
+                            
+                            
+                        elif _currentShader == "ksPerPixelMultiMap_AT_NMDetail":
+                            # Base Color
+                            links.new(img_tex_1_node.outputs['Color'], detail_mix_node.inputs[6])
+                            links.new(img_tex_1_node.outputs['Alpha'], alpha_mix_node.inputs[2])
+                            
+                            links.new(img_tex_4_node.outputs['Color'], detail_mix_node.inputs[7])
+                            links.new(img_tex_4_node.outputs['Alpha'], alpha_mix_node.inputs[3])
+                            
+                            alpha_mix_node.inputs[0].default_value = 0.95
+                            
+                            links.new(alpha_mix_node.outputs[0], detail_mix_node.inputs[0])
+                            links.new(detail_mix_node.outputs[2], principled_bsdf_node.inputs['Base Color'])
+                            
+                            # Normal
+                            links.new(img_tex_2_node.outputs['Color'], detail_normal_mix_node.inputs[6])
+                            links.new(img_tex_5_node.outputs['Color'], detail_normal_mix_node.inputs[7])
+                            
+                            links.new(detail_normal_mix_node.outputs[2], normal_map_node.inputs['Color'])
+                            
+                            links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
+                            
+                            img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
+                            img_tex_5_node.image.colorspace_settings.name = 'Non-Color'
+                            
+                            # Texture Map
+                            links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
+                            
+                            links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
+                            links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
+                            links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
+                            
+                            links.new(separate_color_node.outputs[1], math1_node.inputs[0])
+                            links.new(separate_color_node.outputs[2], math2_node.inputs[0])
+                            
+                            img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
+                            
+                            # Detail 
+                            links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
+                            links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
+                            links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
+                            
+                            if _currentDetailMult is None:
+                                detail_mult_node.outputs[0].default_value = 1.0
+                            else:
+                                detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
+                            
+                            links.new(pbr_mapping_node.outputs['Vector'], img_tex_5_node.inputs['Vector'])
+                            links.new(pbr_tc_node.outputs['UV'], pbr_mapping_node.inputs['Vector'])
+                            links.new(pbr_mult_node.outputs['Value'], pbr_mapping_node.inputs['Scale'])
+                            
+                            detail_normal_mix_node.inputs[0].default_value = float(_currentDetailNormalBlend)
+                            
+                            pbr_mult_node.outputs[0].default_value = float(_currentDetailNMMult)
+                            
+                            
+                        elif _currentShader == "ksPerPixelMultiMap_damage":
+                            # Base Color
+                            links.new(img_tex_1_node.outputs['Color'], detail_mix_node.inputs[6])
+                            links.new(img_tex_1_node.outputs['Alpha'], alpha_mix_node.inputs[2])
+                            
+                            links.new(img_tex_4_node.outputs['Color'], detail_mix_node.inputs[7])
+                            links.new(img_tex_4_node.outputs['Alpha'], alpha_mix_node.inputs[3])
+                            
+                            alpha_mix_node.inputs[0].default_value = 0.95
+                            
+                            links.new(alpha_mix_node.outputs[0], detail_mix_node.inputs[0])
+                            links.new(detail_mix_node.outputs[2], principled_bsdf_node.inputs['Base Color'])
+                            
+                            # Normal
+                            links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
+                            links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
+                            
+                            img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
+                            
+                            # Texture Map
+                            links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
+                            
+                            links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
+                            links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
+                            links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
+                            
+                            links.new(separate_color_node.outputs[1], math1_node.inputs[0])
+                            links.new(separate_color_node.outputs[2], math2_node.inputs[0])
+                            
+                            img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
+                            
+                            # Detail 
+                            links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
+                            links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
+                            links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
+                            
+                            if _currentDetailMult is None:
+                                detail_mult_node.outputs[0].default_value = 1.0
+                            else:
+                                detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
+                    else:
+                        # Base Color
+                        links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
+                        
+                        # Normal
+                        links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
+                        links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
+                        
+                        img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
+                        
+                        # Texture Map
+                        links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
+                        
+                        links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
+                        links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
+                        links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
+                        
+                        links.new(separate_color_node.outputs[1], math1_node.inputs[0])
+                        links.new(separate_color_node.outputs[2], math2_node.inputs[0])
+                        
+                        img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
+                        
+                        # Detail 
+                        links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
+                        links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
+                        links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
+                        
+                        if _currentDetailMult is None:
+                            detail_mult_node.outputs[0].default_value = 1.0
+                        else:
+                            detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
+                    
+                    rename_images(img_tex_1_node, tex_names[0])
+                    rename_images(img_tex_2_node, tex_names[1])
+                    rename_images(img_tex_3_node, tex_names[2])
+                    rename_images(img_tex_4_node, tex_names[3])
+                    rename_images(img_tex_5_node, tex_names[4])
+                    
+                #if int(_currentTextureCount) > 5:
+                if int(_currentTextureCount) == 6:
+                    print(f"Currently unsupported amount of textures. Renaming of files will still occur but no shader details will be setup.")
+                    
+                    rename_images(img_tex_1_node, tex_names[0])
+                    rename_images(img_tex_2_node, tex_names[1])
+                    rename_images(img_tex_3_node, tex_names[2])
+                    rename_images(img_tex_4_node, tex_names[3])
+                    rename_images(img_tex_5_node, tex_names[4])
+                    rename_images(img_tex_6_node, tex_names[5])
+                    
+                if int(_currentTextureCount) == 7:
+                    print(f"Currently unsupported amount of textures. Renaming of files will still occur but no shader details will be setup.")
+                    
+                    rename_images(img_tex_1_node, tex_names[0])
+                    rename_images(img_tex_2_node, tex_names[1])
+                    rename_images(img_tex_3_node, tex_names[2])
+                    rename_images(img_tex_4_node, tex_names[3])
+                    rename_images(img_tex_5_node, tex_names[4])
+                    rename_images(img_tex_6_node, tex_names[5])
+                    rename_images(img_tex_7_node, tex_names[6])
+                    
+                if int(_currentTextureCount) == 8:
+                    print(f"Currently unsupported amount of textures. Renaming of files will still occur but no shader details will be setup.")
+                    
+                    rename_images(img_tex_1_node, tex_names[0])
+                    rename_images(img_tex_2_node, tex_names[1])
+                    rename_images(img_tex_3_node, tex_names[2])
+                    rename_images(img_tex_4_node, tex_names[3])
+                    rename_images(img_tex_5_node, tex_names[4])
+                    rename_images(img_tex_6_node, tex_names[5])
+                    rename_images(img_tex_7_node, tex_names[6])
+                    rename_images(img_tex_8_node, tex_names[7])
+                    
+                if int(_currentTextureCount) == 9:
+                    print(f"Currently unsupported amount of textures. Renaming of files will still occur but no shader details will be setup.")
+                    
+                    rename_images(img_tex_1_node, tex_names[0])
+                    rename_images(img_tex_2_node, tex_names[1])
+                    rename_images(img_tex_3_node, tex_names[2])
+                    rename_images(img_tex_4_node, tex_names[3])
+                    rename_images(img_tex_5_node, tex_names[4])
+                    rename_images(img_tex_6_node, tex_names[5])
+                    rename_images(img_tex_7_node, tex_names[6])
+                    rename_images(img_tex_8_node, tex_names[7])
+                    rename_images(img_tex_9_node, tex_names[8])
+                    
+                if int(_currentTextureCount) == 10:
+                    print(f"Currently unsupported amount of textures. Renaming of files will still occur but no shader details will be setup.")
+                    
+                    rename_images(img_tex_1_node, tex_names[0])
+                    rename_images(img_tex_2_node, tex_names[1])
+                    rename_images(img_tex_3_node, tex_names[2])
+                    rename_images(img_tex_4_node, tex_names[3])
+                    rename_images(img_tex_5_node, tex_names[4])
+                    rename_images(img_tex_6_node, tex_names[5])
+                    rename_images(img_tex_7_node, tex_names[6])
+                    rename_images(img_tex_8_node, tex_names[7])
+                    rename_images(img_tex_9_node, tex_names[8])
+                    rename_images(img_tex_10_node, tex_names[9])
+            except AttributeError as e:
+                print(f"Error processing material '{_currentMatName}': {str(e)}")
+                continue
                 
 # Operator to rename image data blocks as jpegs. This is due to jpgs being supported image types.
 
