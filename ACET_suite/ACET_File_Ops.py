@@ -46,7 +46,7 @@ def run_kn5_converter(input_file, output_type):
 
     # If output type is "fbx", run the FBX converter on the created FBX file
     if output_type == "fbx":
-        fbx_result = run_fbx_converter(output_file, output_file)
+        fbx_result = run_fbx_converter(output_file)
         if 'ERROR' in fbx_result:
             return fbx_result
         info += f"\n{fbx_result['INFO']}"
