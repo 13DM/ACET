@@ -14,6 +14,7 @@ import bpy
 import os
 from bpy_extras.io_utils import ImportHelper
 from bpy.types import Operator, FileSelectParams
+from .ACET_File_Ops import run_fbx_converter, run_kn5_converter
 
 def clear_principled_bsdf_inputs(node):
     if node.type == 'BSDF_PRINCIPLED':
@@ -394,9 +395,7 @@ def configure_ac_shader():
             
             #clear_principled_bsdf_inputs(principled_bsdf_node)
             links.new(principled_bsdf_node.outputs[0], mat_output_node.inputs[0])
-            
-            
-            
+
 
 #ini related parts of the code
 
@@ -1704,9 +1703,50 @@ class OBJECT_OT_acutil_backface(bpy.types.Operator):
         toggle_show_backface(selected_objects)
         return {'FINISHED'}
         
+# Functionality for physical file operations such as KN5 conversion and FBX conversion
+
+class OBJECT_OT_RunFbxConverter(bpy.types.Operator):
+    """Run FbxConverter"""
+    bl_idname = "object.run_fbx_converter"
+    bl_label = "Run Fbx Converter"
+    
+    filepath: bpy.props.StringProperty(subtype="FILE_PATH")
+
+    def execute(self, context):
+        result = run_fbx_converter(self.filepath)
+        if 'INFO' in result:
+            self.report({'INFO'}, result['INFO'])
+        else:
+            self.report({'ERROR'}, result['ERROR'])
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+class OBJECT_OT_RunKn5Converter(bpy.types.Operator):
+    """Run KN5 Converter"""
+    bl_idname = "object.run_kn5_converter"
+    bl_label = "Run KN5 Converter"
+
+    output_type: bpy.props.StringProperty(name="Output Type", description="Output type for KN5 Converter", default="fbx")
+    filepath: bpy.props.StringProperty(subtype="FILE_PATH")
+
+    def execute(self, context):
+        result = run_kn5_converter(self.filepath, self.output_type)
+        if 'INFO' in result:
+            self.report({'INFO'}, result['INFO'])
+        else:
+            self.report({'ERROR'}, result['ERROR'])
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
 # Define the panel for the custom tab
 class OBJECT_PT_ac_shader(bpy.types.Panel):
-    bl_label = "AC Shader Util"
+    bl_label = "AC Utilities"
     bl_idname = "OBJECT_PT_ac_shader"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -1717,22 +1757,41 @@ class OBJECT_PT_ac_shader(bpy.types.Panel):
         scene = context.scene
         
         # Text block that says "Standard Conversion"
-        #row = layout.row()
-        #row.label(text="Standard Operations", icon='PLUS')
+        row = layout.row()
+        row.label(text="KN5 Conversion", icon='NONE')
+        
+        # KN5 Converter buttons
+        layout.operator("object.run_kn5_converter", text="Convert to FBX").output_type = "fbx"
+        layout.operator("object.run_kn5_converter", text="Convert to OBJ").output_type = "obj"
+        
+        # Text block that says "Standard Conversion"
+        row = layout.row()
+        row.label(text="FBX Conversion", icon='NONE')
+        
+        layout.operator("object.run_fbx_converter", text="Convert to FBX to Binary")
+        
+        # Text block that says "Standard Conversion"
+        row = layout.row()
+        row.label(text="INI Operations", icon='NONE')        
         
         layout.operator("acutil.read_ini", text="Load Persistence")
         layout.operator("acutil.backface", text="Set Transparency")
+        
         
 # Register the operators and panel
 def register():
     bpy.utils.register_class(OBJECT_OT_acutil_read_ini)
     bpy.utils.register_class(OBJECT_OT_acutil_backface)
     bpy.utils.register_class(OBJECT_PT_ac_shader)
+    bpy.utils.register_class(OBJECT_OT_RunKn5Converter)
+    bpy.utils.register_class(OBJECT_OT_RunFbxConverter)
     
 def unregister():
     bpy.utils.unregister_class(OBJECT_OT_acutil_read_ini)
     bpy.utils.unregister_class(OBJECT_OT_acutil_backface)
     bpy.utils.unregister_class(OBJECT_PT_ac_shader)
+    bpy.utils.unregister_class(OBJECT_OT_RunKn5Converter)
+    bpy.utils.unregister_class(OBJECT_OT_RunFbxConverter)
     
 if __name__ == "__main__":
     register()
