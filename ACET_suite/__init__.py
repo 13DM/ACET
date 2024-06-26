@@ -3,10 +3,10 @@ bl_info = {
     "author": "Dad",
     "version": (1, 0, 1),
     "blender": (3, 4, 0),
-    "location": "View3D > Sidebar > ACET",
+    "location": "View3D > Sidebar > ACET/Tools",
     "description": "The Assetto Corsa Encryption Tools suite with the main logic, and added utils for loading persistence in older blender versions.",
     "warning": "",
-    "doc_url": "",
+    "doc_url": "https://github.com/13DM/ACET",
     "category": "3D View",
 }
 
