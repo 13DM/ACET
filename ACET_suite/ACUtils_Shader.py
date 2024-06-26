@@ -1,7 +1,7 @@
 #bl_info = {
 #    "name": "ACUtils",
 #    "author": "Dad",
-#    "version": (1, 0, 0),
+#    "version": (1, 0, 1),
 #    "blender": (3, 4, 0),
 #    "location": "View3D > Sidebar > Tool",
 #    "description": "Load persistence from ini and handle transparency of objects.",
@@ -444,6 +444,9 @@ def apply_material_settings_from_ini(material_data, ini_filepath):
     texture_directory = os.path.join(ini_path, "texture")
     
     Error_result = ''
+    
+    ini_error_text = f'----------------------------------------\n'
+    ini_error_text += f'Report of materials with issues during application of ini: \n\n'
 
     for key, value in material_data.items():
         if key.startswith('MATERIAL_'):
@@ -471,6 +474,13 @@ def apply_material_settings_from_ini(material_data, ini_filepath):
             # If material is not found, skip this iteration
             if _currentMat is None:
                 continue
+            
+            material_used = any(obj for obj in bpy.data.objects if hasattr(obj.data, 'materials') and _currentMatName in [mat.name for mat in obj.data.materials])
+            if not material_used:
+                print(f"Material '{_currentMatName}' not used on any mesh object. Skipping.")
+                print(f"")
+                ini_error_text += f"Material '{_currentMatName}' not used on any mesh object. It was skipped. \n"
+                continue  
             
             _currentShader = value.get('SHADER')
             # Fix Alpha Blend Value as boolean
@@ -648,677 +658,261 @@ def apply_material_settings_from_ini(material_data, ini_filepath):
                 #if node.name == "Image Texture.009":
                 #    img_tex_10_node = node
                 
-            #apply the shader socket connections
-            if _currentAlphaBlend == True:
-                _currentMat.blend_method = "BLEND"
-                _currentMat.show_transparent_back = 0
-                if _useDetail == True:
-                    links.new(alpha_mix_node.outputs[0], principled_bsdf_node.inputs['Alpha'])
-                else:
-                    links.new(img_tex_1_node.outputs['Alpha'], principled_bsdf_node.inputs['Alpha'])
-            if _currentAlphaTest == True:
-                _currentMat.blend_method = "HASHED"
-                _currentMat.show_transparent_back = 0
-                if _useDetail == True:
-                    links.new(alpha_mix_node.outputs[0], principled_bsdf_node.inputs['Alpha'])
-                else:
-                    links.new(img_tex_1_node.outputs['Alpha'], principled_bsdf_node.inputs['Alpha'])
             
-            if int(_currentTextureCount) == 1:
-                links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
-                
-                if img_tex_1_node:
-                    # Check if the image datablock exists
-                    if img_tex_1_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[0], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[0])
-                        img_tex_1_node.image = img
-                        img_tex_1_node.image.reload()
-                        img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_1_node.image.source = 'FILE'
+            try:
+                #apply the shader socket connections
+                if _currentAlphaBlend == True:
+                    _currentMat.blend_method = "BLEND"
+                    _currentMat.show_transparent_back = 0
+                    if _useDetail == True:
+                        links.new(alpha_mix_node.outputs[0], principled_bsdf_node.inputs['Alpha'])
                     else:
-                        # Set the image filepath and name
-                        img_tex_1_node.image.filepath = os.path.join(texture_directory, tex_names[0])
-                        img_tex_1_node.image.name = tex_names[0]
-                        img_tex_1_node.image.reload()
-                        img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_1_node.name} with path of: {os.path.join(texture_directory, tex_names[0])} \n')
-                    
-                
-            if int(_currentTextureCount) == 2:
-                if img_tex_1_node:
-                    # Check if the image datablock exists
-                    if img_tex_1_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[0], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[0])
-                        img_tex_1_node.image = img
-                        img_tex_1_node.image.reload()
-                        img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_1_node.image.source = 'FILE'
+                        links.new(img_tex_1_node.outputs['Alpha'], principled_bsdf_node.inputs['Alpha'])
+                if _currentAlphaTest == True:
+                    _currentMat.blend_method = "HASHED"
+                    _currentMat.show_transparent_back = 0
+                    if _useDetail == True:
+                        links.new(alpha_mix_node.outputs[0], principled_bsdf_node.inputs['Alpha'])
                     else:
-                        # Set the image filepath and name
-                        img_tex_1_node.image.filepath = os.path.join(texture_directory, tex_names[0])
-                        img_tex_1_node.image.name = tex_names[0]
-                        img_tex_1_node.image.reload()
-                        img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_1_node.name} with path of: {os.path.join(texture_directory, tex_names[0])} \n')
+                        links.new(img_tex_1_node.outputs['Alpha'], principled_bsdf_node.inputs['Alpha'])
                 
-                if img_tex_2_node:
-                    # Check if the image datablock exists
-                    if img_tex_2_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[1], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[1])
-                        img_tex_2_node.image = img
-                        img_tex_2_node.image.reload()
-                        img_tex_2_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_2_node.image.source = 'FILE'
-                    else:
-                        # Set the image filepath and name
-                        img_tex_2_node.image.filepath = os.path.join(texture_directory, tex_names[1])
-                        img_tex_2_node.image.name = tex_names[1]
-                        img_tex_2_node.image.reload()
-                        img_tex_2_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_2_node.name} with path of: {os.path.join(texture_directory, tex_names[1])} \n')
-                
-                if _currentShader not in ("ksGrass", "ksPostFOG_MS"):
+                if int(_currentTextureCount) == 1:
                     links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
                     
-                    links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
-                    links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
-                    
-                    img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
-                
-                if _currentShader != "ksPerPixelNM_UVMult":
-                    print(f"WARN: Shader type: {_currentShader} utilizes multipliers which are not configured for the base color or normal texture.")
-                
-                
-            if int(_currentTextureCount) == 3:
-                if img_tex_1_node:
-                    # Check if the image datablock exists
-                    if img_tex_1_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[0], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[0])
-                        img_tex_1_node.image = img
-                        img_tex_1_node.image.reload()
-                        img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_1_node.image.source = 'FILE'
+                    if img_tex_1_node:
+                        # Check if the image datablock exists
+                        if img_tex_1_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[0], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[0])
+                            img_tex_1_node.image = img
+                            img_tex_1_node.image.reload()
+                            img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_1_node.image.source = 'FILE'
+                        else:
+                            # Set the image filepath and name
+                            img_tex_1_node.image.filepath = os.path.join(texture_directory, tex_names[0])
+                            img_tex_1_node.image.name = tex_names[0]
+                            img_tex_1_node.image.reload()
+                            img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
                     else:
-                        # Set the image filepath and name
-                        img_tex_1_node.image.filepath = os.path.join(texture_directory, tex_names[0])
-                        img_tex_1_node.image.name = tex_names[0]
-                        img_tex_1_node.image.reload()
-                        img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_1_node.name} with path of: {os.path.join(texture_directory, tex_names[0])} \n')
-                
-                if img_tex_2_node:
-                    # Check if the image datablock exists
-                    if img_tex_2_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[1], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[1])
-                        img_tex_2_node.image = img
-                        img_tex_2_node.image.reload()
-                        img_tex_2_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_2_node.image.source = 'FILE'
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_1_node.name} with path of: {os.path.join(texture_directory, tex_names[0])} \n')
+                        
+                    
+                if int(_currentTextureCount) == 2:
+                    if img_tex_1_node:
+                        # Check if the image datablock exists
+                        if img_tex_1_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[0], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[0])
+                            img_tex_1_node.image = img
+                            img_tex_1_node.image.reload()
+                            img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_1_node.image.source = 'FILE'
+                        else:
+                            # Set the image filepath and name
+                            img_tex_1_node.image.filepath = os.path.join(texture_directory, tex_names[0])
+                            img_tex_1_node.image.name = tex_names[0]
+                            img_tex_1_node.image.reload()
+                            img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
                     else:
-                        # Set the image filepath and name
-                        img_tex_2_node.image.filepath = os.path.join(texture_directory, tex_names[1])
-                        img_tex_2_node.image.name = tex_names[1]
-                        img_tex_2_node.image.reload()
-                        img_tex_2_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_2_node.name} with path of: {os.path.join(texture_directory, tex_names[1])} \n')
-                
-                if img_tex_3_node:
-                    # Check if the image datablock exists
-                    if img_tex_3_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[2], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[2])
-                        img_tex_3_node.image = img
-                        img_tex_3_node.image.reload()
-                        img_tex_3_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_3_node.image.source = 'FILE'
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_1_node.name} with path of: {os.path.join(texture_directory, tex_names[0])} \n')
+                    
+                    if img_tex_2_node:
+                        # Check if the image datablock exists
+                        if img_tex_2_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[1], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[1])
+                            img_tex_2_node.image = img
+                            img_tex_2_node.image.reload()
+                            img_tex_2_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_2_node.image.source = 'FILE'
+                        else:
+                            # Set the image filepath and name
+                            img_tex_2_node.image.filepath = os.path.join(texture_directory, tex_names[1])
+                            img_tex_2_node.image.name = tex_names[1]
+                            img_tex_2_node.image.reload()
+                            img_tex_2_node.image.alpha_mode = 'CHANNEL_PACKED'
                     else:
-                        # Set the image filepath and name
-                        img_tex_3_node.image.filepath = os.path.join(texture_directory, tex_names[2])
-                        img_tex_3_node.image.name = tex_names[2]
-                        img_tex_3_node.image.reload()
-                        img_tex_3_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_3_node.name} with path of: {os.path.join(texture_directory, tex_names[2])} \n')
-                
-            
-                if _currentShader == "ksPerPixelAT_NM_emissive":
-                    links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_2_node.name} with path of: {os.path.join(texture_directory, tex_names[1])} \n')
                     
-                    links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
-                    links.new(img_tex_2_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
-                    
-                    img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
-                    
-                    links.new(img_tex_3_node.outputs['Color'], principled_bsdf_node.inputs['Emission'])
-                
-                if _currentShader == "ksPerPixel_dual_layer":
-                    links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
-                
-                    print(f"WARN: Shader type: {_currentShader} utilizes layers and mask which are not configured for the shader. Mapping original color only.")
-                if _currentShader == "ksPerPixelAT_NM_emissive":
-                    links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
-                    
-                    links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
-                    links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
-                    
-                    img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
-                
-                    print(f"WARN: Shader type: {_currentShader} utilizes multipliers which are not configured for the base color or normal texture.")
-                
-                
-            if int(_currentTextureCount) == 4:
-                if img_tex_1_node:
-                    # Check if the image datablock exists
-                    if img_tex_1_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[0], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[0])
-                        img_tex_1_node.image = img
-                        img_tex_1_node.image.reload()
-                        img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_1_node.image.source = 'FILE'
-                    else:
-                        # Set the image filepath and name
-                        img_tex_1_node.image.filepath = os.path.join(texture_directory, tex_names[0])
-                        img_tex_1_node.image.name = tex_names[0]
-                        img_tex_1_node.image.reload()
-                        img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_1_node.name} with path of: {os.path.join(texture_directory, tex_names[0])} \n')
-                
-                if img_tex_2_node:
-                    # Check if the image datablock exists
-                    if img_tex_2_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[1], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[1])
-                        img_tex_2_node.image = img
-                        img_tex_2_node.image.reload()
-                        img_tex_2_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_2_node.image.source = 'FILE'
-                    else:
-                        # Set the image filepath and name
-                        img_tex_2_node.image.filepath = os.path.join(texture_directory, tex_names[1])
-                        img_tex_2_node.image.name = tex_names[1]
-                        img_tex_2_node.image.reload()
-                        img_tex_2_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_2_node.name} with path of: {os.path.join(texture_directory, tex_names[1])} \n')
-                
-                if img_tex_3_node:
-                    # Check if the image datablock exists
-                    if img_tex_3_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[2], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[2])
-                        img_tex_3_node.image = img
-                        img_tex_3_node.image.reload()
-                        img_tex_3_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_3_node.image.source = 'FILE'
-                    else:
-                        # Set the image filepath and name
-                        img_tex_3_node.image.filepath = os.path.join(texture_directory, tex_names[2])
-                        img_tex_3_node.image.name = tex_names[2]
-                        img_tex_3_node.image.reload()
-                        img_tex_3_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_3_node.name} with path of: {os.path.join(texture_directory, tex_names[2])} \n')
-                
-                if img_tex_4_node:
-                    # Check if the image datablock exists
-                    if img_tex_4_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[3], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[3])
-                        img_tex_4_node.image = img
-                        img_tex_4_node.image.reload()
-                        img_tex_4_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_4_node.image.source = 'FILE'
-                    else:
-                        # Set the image filepath and name
-                        img_tex_4_node.image.filepath = os.path.join(texture_directory, tex_names[3])
-                        img_tex_4_node.image.name = tex_names[3]
-                        img_tex_4_node.image.reload()
-                        img_tex_4_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_4_node.name} with path of: {os.path.join(texture_directory, tex_names[3])} \n')
-                
-                # IsDetail true map the base colors to the mix nodes
-                if _useDetail == True:
-                    # Base Color
-                    links.new(img_tex_1_node.outputs['Color'], detail_mix_node.inputs[6])
-                    links.new(img_tex_1_node.outputs['Alpha'], alpha_mix_node.inputs[2])
-                    
-                    links.new(img_tex_4_node.outputs['Color'], detail_mix_node.inputs[7])
-                    links.new(img_tex_4_node.outputs['Alpha'], alpha_mix_node.inputs[3])
-                    
-                    alpha_mix_node.inputs[0].default_value = 0.95
-                    
-                    links.new(alpha_mix_node.outputs[0], detail_mix_node.inputs[0])
-                    links.new(detail_mix_node.outputs[2], principled_bsdf_node.inputs['Base Color'])
-                    
-                    # Normal
-                    links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
-                    links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
-                    
-                    img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
-                    
-                    # Texture Map
-                    links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
-                    
-                    links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
-                    links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
-                    links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
-                    
-                    links.new(separate_color_node.outputs[1], math1_node.inputs[0])
-                    links.new(separate_color_node.outputs[2], math2_node.inputs[0])
-                    
-                    img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
-                    
-                    # Detail 
-                    links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
-                    links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
-                    links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
-                    
-                    if _currentDetailMult is None:
-                        detail_mult_node.outputs[0].default_value = 1.0
-                    else:
-                        detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
-                else:
-                    # Base Color
-                    links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
-                    
-                    # Normal
-                    links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
-                    links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
-                    
-                    img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
-                    
-                    # Texture Map
-                    links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
-                    
-                    links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
-                    links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
-                    links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
-                    
-                    links.new(separate_color_node.outputs[1], math1_node.inputs[0])
-                    links.new(separate_color_node.outputs[2], math2_node.inputs[0])
-                    
-                    img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
-                    
-                    # Detail 
-                    links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
-                    links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
-                    links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
-                    
-                    if _currentDetailMult is None:
-                        detail_mult_node.outputs[0].default_value = 1.0
-                    else:
-                        detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
-                
-            if int(_currentTextureCount) == 5:
-                if img_tex_1_node:
-                    # Check if the image datablock exists
-                    if img_tex_1_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[0], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[0])
-                        img_tex_1_node.image = img
-                        img_tex_1_node.image.reload()
-                        img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_1_node.image.source = 'FILE'
-                    else:
-                        # Set the image filepath and name
-                        img_tex_1_node.image.filepath = os.path.join(texture_directory, tex_names[0])
-                        img_tex_1_node.image.name = tex_names[0]
-                        img_tex_1_node.image.reload()
-                        img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_1_node.name} with path of: {os.path.join(texture_directory, tex_names[0])} \n')
-                
-                if img_tex_2_node:
-                    # Check if the image datablock exists
-                    if img_tex_2_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[1], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[1])
-                        img_tex_2_node.image = img
-                        img_tex_2_node.image.reload()
-                        img_tex_2_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_2_node.image.source = 'FILE'
-                    else:
-                        # Set the image filepath and name
-                        img_tex_2_node.image.filepath = os.path.join(texture_directory, tex_names[1])
-                        img_tex_2_node.image.name = tex_names[1]
-                        img_tex_2_node.image.reload()
-                        img_tex_2_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_2_node.name} with path of: {os.path.join(texture_directory, tex_names[1])} \n')
-                
-                if img_tex_3_node:
-                    # Check if the image datablock exists
-                    if img_tex_3_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[2], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[2])
-                        img_tex_3_node.image = img
-                        img_tex_3_node.image.reload()
-                        img_tex_3_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_3_node.image.source = 'FILE'
-                    else:
-                        # Set the image filepath and name
-                        img_tex_3_node.image.filepath = os.path.join(texture_directory, tex_names[2])
-                        img_tex_3_node.image.name = tex_names[2]
-                        img_tex_3_node.image.reload()
-                        img_tex_3_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_3_node.name} with path of: {os.path.join(texture_directory, tex_names[2])} \n')
-                
-                if img_tex_4_node:
-                    # Check if the image datablock exists
-                    if img_tex_4_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[3], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[3])
-                        img_tex_4_node.image = img
-                        img_tex_4_node.image.reload()
-                        img_tex_4_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_4_node.image.source = 'FILE'
-                    else:
-                        # Set the image filepath and name
-                        img_tex_4_node.image.filepath = os.path.join(texture_directory, tex_names[3])
-                        img_tex_4_node.image.name = tex_names[3]
-                        img_tex_4_node.image.reload()
-                        img_tex_4_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_4_node.name} with path of: {os.path.join(texture_directory, tex_names[3])} \n')
-                
-                if img_tex_5_node:
-                    # Check if the image datablock exists
-                    if img_tex_5_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[4], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[4])
-                        img_tex_5_node.image = img
-                        img_tex_5_node.image.reload()
-                        img_tex_5_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_5_node.image.source = 'FILE'
-                    else:
-                        # Set the image filepath and name
-                        img_tex_5_node.image.filepath = os.path.join(texture_directory, tex_names[4])
-                        img_tex_5_node.image.name = tex_names[4]
-                        img_tex_5_node.image.reload()
-                        img_tex_5_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_5_node.name} with path of: {os.path.join(texture_directory, tex_names[4])} \n')
-            
-                # IsDetail true map the base colors to the mix nodes
-                if _useDetail == True:
-                    if _currentShader in ("ksDiscBrake", "ksTyres"):
+                    if _currentShader not in ("ksGrass", "ksPostFOG_MS"):
                         links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
+                        
+                        links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
+                        links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
+                        
+                        img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
                     
+                    if _currentShader != "ksPerPixelNM_UVMult":
+                        print(f"WARN: Shader type: {_currentShader} utilizes multipliers which are not configured for the base color or normal texture.")
+                    
+                    
+                if int(_currentTextureCount) == 3:
+                    if img_tex_1_node:
+                        # Check if the image datablock exists
+                        if img_tex_1_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[0], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[0])
+                            img_tex_1_node.image = img
+                            img_tex_1_node.image.reload()
+                            img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_1_node.image.source = 'FILE'
+                        else:
+                            # Set the image filepath and name
+                            img_tex_1_node.image.filepath = os.path.join(texture_directory, tex_names[0])
+                            img_tex_1_node.image.name = tex_names[0]
+                            img_tex_1_node.image.reload()
+                            img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
+                    else:
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_1_node.name} with path of: {os.path.join(texture_directory, tex_names[0])} \n')
+                    
+                    if img_tex_2_node:
+                        # Check if the image datablock exists
+                        if img_tex_2_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[1], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[1])
+                            img_tex_2_node.image = img
+                            img_tex_2_node.image.reload()
+                            img_tex_2_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_2_node.image.source = 'FILE'
+                        else:
+                            # Set the image filepath and name
+                            img_tex_2_node.image.filepath = os.path.join(texture_directory, tex_names[1])
+                            img_tex_2_node.image.name = tex_names[1]
+                            img_tex_2_node.image.reload()
+                            img_tex_2_node.image.alpha_mode = 'CHANNEL_PACKED'
+                    else:
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_2_node.name} with path of: {os.path.join(texture_directory, tex_names[1])} \n')
+                    
+                    if img_tex_3_node:
+                        # Check if the image datablock exists
+                        if img_tex_3_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[2], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[2])
+                            img_tex_3_node.image = img
+                            img_tex_3_node.image.reload()
+                            img_tex_3_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_3_node.image.source = 'FILE'
+                        else:
+                            # Set the image filepath and name
+                            img_tex_3_node.image.filepath = os.path.join(texture_directory, tex_names[2])
+                            img_tex_3_node.image.name = tex_names[2]
+                            img_tex_3_node.image.reload()
+                            img_tex_3_node.image.alpha_mode = 'CHANNEL_PACKED'
+                    else:
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_3_node.name} with path of: {os.path.join(texture_directory, tex_names[2])} \n')
+                    
+                
+                    if _currentShader == "ksPerPixelAT_NM_emissive":
+                        links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
+                        
                         links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
                         links.new(img_tex_2_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
+                        
+                        img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
+                        
+                        links.new(img_tex_3_node.outputs['Color'], principled_bsdf_node.inputs['Emission'])
                     
-                        img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
-                    elif _currentShader == "ksPerPixelMultiMap_emissive":
-                        # Base Color
-                        links.new(img_tex_1_node.outputs['Color'], detail_mix_node.inputs[6])
-                        links.new(img_tex_1_node.outputs['Alpha'], alpha_mix_node.inputs[2])
+                    if _currentShader == "ksPerPixel_dual_layer":
+                        links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
+                    
+                        print(f"WARN: Shader type: {_currentShader} utilizes layers and mask which are not configured for the shader. Mapping original color only.")
+                    if _currentShader == "ksPerPixelAT_NM_emissive":
+                        links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
                         
-                        links.new(img_tex_4_node.outputs['Color'], detail_mix_node.inputs[7])
-                        links.new(img_tex_4_node.outputs['Alpha'], alpha_mix_node.inputs[3])
-                        
-                        alpha_mix_node.inputs[0].default_value = 0.95
-                        
-                        links.new(alpha_mix_node.outputs[0], detail_mix_node.inputs[0])
-                        links.new(detail_mix_node.outputs[2], principled_bsdf_node.inputs['Base Color'])
-                        
-                        # Normal
                         links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
                         links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
                         
                         img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
-                        
-                        # Texture Map
-                        links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
-                        
-                        links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
-                        links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
-                        links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
-                        
-                        links.new(separate_color_node.outputs[1], math1_node.inputs[0])
-                        links.new(separate_color_node.outputs[2], math2_node.inputs[0])
-                        
-                        img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
-                        
-                        # Detail 
-                        links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
-                        links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
-                        links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
-                        
-                        detail_mult_node.outputs[0].default_value = float(_currentDetailMult)   
-                        
-                        # Emission
-                        links.new(img_tex_5_node.outputs['Color'], principled_bsdf_node.inputs['Emission'])
-                        
-                    elif _currentShader == "ksPerPixelMultiMap_AT_emissive":
-                        # Base Color
-                        links.new(img_tex_1_node.outputs['Color'], detail_mix_node.inputs[6])
-                        links.new(img_tex_1_node.outputs['Alpha'], alpha_mix_node.inputs[2])
-                        
-                        links.new(img_tex_4_node.outputs['Color'], detail_mix_node.inputs[7])
-                        links.new(img_tex_4_node.outputs['Alpha'], alpha_mix_node.inputs[3])
-                        
-                        alpha_mix_node.inputs[0].default_value = 0.95
-                        
-                        links.new(alpha_mix_node.outputs[0], detail_mix_node.inputs[0])
-                        links.new(detail_mix_node.outputs[2], principled_bsdf_node.inputs['Base Color'])
-                        
-                        # Normal
-                        links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
-                        links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
-                        
-                        img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
-                        
-                        # Texture Map
-                        links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
-                        
-                        links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
-                        links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
-                        links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
-                        
-                        links.new(separate_color_node.outputs[1], math1_node.inputs[0])
-                        links.new(separate_color_node.outputs[2], math2_node.inputs[0])
-                        
-                        img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
-                        
-                        # Detail 
-                        links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
-                        links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
-                        links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
-                        
-                        # Emission
-                        links.new(img_tex_5_node.outputs['Color'], principled_bsdf_node.inputs['Emission'])
-                        
-                        detail_mult_node.outputs[0].default_value = float(_currentDetailMult)    
-                        
-                    elif _currentShader in ("ksPerPixelMultiMap_NMDetail", "ksSkinnedMesh_NMDetaill"):
-                        # Base Color
-                        links.new(img_tex_1_node.outputs['Color'], detail_mix_node.inputs[6])
-                        links.new(img_tex_1_node.outputs['Alpha'], alpha_mix_node.inputs[2])
-                        
-                        links.new(img_tex_4_node.outputs['Color'], detail_mix_node.inputs[7])
-                        links.new(img_tex_4_node.outputs['Alpha'], alpha_mix_node.inputs[3])
-                        
-                        alpha_mix_node.inputs[0].default_value = 0.95
-                        
-                        links.new(alpha_mix_node.outputs[0], detail_mix_node.inputs[0])
-                        links.new(detail_mix_node.outputs[2], principled_bsdf_node.inputs['Base Color'])
-                        
-                        # Normal
-                        links.new(img_tex_2_node.outputs['Color'], detail_normal_mix_node.inputs[6])
-                        links.new(img_tex_5_node.outputs['Color'], detail_normal_mix_node.inputs[7])
-                        
-                        links.new(detail_normal_mix_node.outputs[2], normal_map_node.inputs['Color'])
-                        
-                        links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
-                        
-                        img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
-                        img_tex_5_node.image.colorspace_settings.name = 'Non-Color'
-                        
-                        # Texture Map
-                        links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
-                        
-                        links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
-                        links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
-                        links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
-                        
-                        links.new(separate_color_node.outputs[1], math1_node.inputs[0])
-                        links.new(separate_color_node.outputs[2], math2_node.inputs[0])
-                        
-                        img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
-                        
-                        # Detail 
-                        links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
-                        links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
-                        links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
-                        
-                        if _currentDetailMult is None:
-                            detail_mult_node.outputs[0].default_value = 1.0
+                    
+                        print(f"WARN: Shader type: {_currentShader} utilizes multipliers which are not configured for the base color or normal texture.")
+                    
+                    
+                if int(_currentTextureCount) == 4:
+                    if img_tex_1_node:
+                        # Check if the image datablock exists
+                        if img_tex_1_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[0], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[0])
+                            img_tex_1_node.image = img
+                            img_tex_1_node.image.reload()
+                            img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_1_node.image.source = 'FILE'
                         else:
-                            detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
-                        
-                        links.new(pbr_mapping_node.outputs['Vector'], img_tex_5_node.inputs['Vector'])
-                        links.new(pbr_tc_node.outputs['UV'], pbr_mapping_node.inputs['Vector'])
-                        links.new(pbr_mult_node.outputs['Value'], pbr_mapping_node.inputs['Scale'])
-                        
-                        detail_normal_mix_node.inputs[0].default_value = float(_currentDetailNormalBlend)
-                        
-                        pbr_mult_node.outputs[0].default_value = float(_currentDetailMult)
-                        
-                        
-                    elif _currentShader == "smSticker":
-                        # Base Color
-                        links.new(img_tex_1_node.outputs['Color'], detail_mix_node.inputs[6])
-                        links.new(img_tex_1_node.outputs['Alpha'], alpha_mix_node.inputs[2])
-                        
-                        links.new(img_tex_4_node.outputs['Color'], detail_mix_node.inputs[7])
-                        links.new(img_tex_4_node.outputs['Alpha'], alpha_mix_node.inputs[3])
-                        
-                        alpha_mix_node.inputs[0].default_value = 0.95
-                        
-                        links.new(alpha_mix_node.outputs[0], detail_mix_node.inputs[0])
-                        links.new(detail_mix_node.outputs[2], principled_bsdf_node.inputs['Base Color'])
-                        
-                        # Normal
-                        links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
-                        
-                        links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
-                        
-                        img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
-                        
-                        # Texture Map
-                        links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
-                        
-                        links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
-                        links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
-                        links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
-                        
-                        links.new(separate_color_node.outputs[1], math1_node.inputs[0])
-                        links.new(separate_color_node.outputs[2], math2_node.inputs[0])
-                        
-                        img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
-                        
-                        # Detail 
-                        links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
-                        links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
-                        links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
-                        
-                        if _currentDetailMult is None:
-                            detail_mult_node.outputs[0].default_value = 1.0
+                            # Set the image filepath and name
+                            img_tex_1_node.image.filepath = os.path.join(texture_directory, tex_names[0])
+                            img_tex_1_node.image.name = tex_names[0]
+                            img_tex_1_node.image.reload()
+                            img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
+                    else:
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_1_node.name} with path of: {os.path.join(texture_directory, tex_names[0])} \n')
+                    
+                    if img_tex_2_node:
+                        # Check if the image datablock exists
+                        if img_tex_2_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[1], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[1])
+                            img_tex_2_node.image = img
+                            img_tex_2_node.image.reload()
+                            img_tex_2_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_2_node.image.source = 'FILE'
                         else:
-                            detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
-                        
-                        links.new(pbr_mapping_node.outputs['Vector'], img_tex_2_node.inputs['Vector'])
-                        links.new(pbr_tc_node.outputs['UV'], pbr_mapping_node.inputs['Vector'])
-                        links.new(pbr_mult_node.outputs['Value'], pbr_mapping_node.inputs['Scale'])
-                        
-                        pbr_mult_node.outputs[0].default_value = float(_currentDetailNMMult)
-                        
-                        
-                    elif _currentShader == "ksPerPixelMultiMap_AT_NMDetail":
-                        # Base Color
-                        links.new(img_tex_1_node.outputs['Color'], detail_mix_node.inputs[6])
-                        links.new(img_tex_1_node.outputs['Alpha'], alpha_mix_node.inputs[2])
-                        
-                        links.new(img_tex_4_node.outputs['Color'], detail_mix_node.inputs[7])
-                        links.new(img_tex_4_node.outputs['Alpha'], alpha_mix_node.inputs[3])
-                        
-                        alpha_mix_node.inputs[0].default_value = 0.95
-                        
-                        links.new(alpha_mix_node.outputs[0], detail_mix_node.inputs[0])
-                        links.new(detail_mix_node.outputs[2], principled_bsdf_node.inputs['Base Color'])
-                        
-                        # Normal
-                        links.new(img_tex_2_node.outputs['Color'], detail_normal_mix_node.inputs[6])
-                        links.new(img_tex_5_node.outputs['Color'], detail_normal_mix_node.inputs[7])
-                        
-                        links.new(detail_normal_mix_node.outputs[2], normal_map_node.inputs['Color'])
-                        
-                        links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
-                        
-                        img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
-                        img_tex_5_node.image.colorspace_settings.name = 'Non-Color'
-                        
-                        # Texture Map
-                        links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
-                        
-                        links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
-                        links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
-                        links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
-                        
-                        links.new(separate_color_node.outputs[1], math1_node.inputs[0])
-                        links.new(separate_color_node.outputs[2], math2_node.inputs[0])
-                        
-                        img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
-                        
-                        # Detail 
-                        links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
-                        links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
-                        links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
-                        
-                        if _currentDetailMult is None:
-                            detail_mult_node.outputs[0].default_value = 1.0
+                            # Set the image filepath and name
+                            img_tex_2_node.image.filepath = os.path.join(texture_directory, tex_names[1])
+                            img_tex_2_node.image.name = tex_names[1]
+                            img_tex_2_node.image.reload()
+                            img_tex_2_node.image.alpha_mode = 'CHANNEL_PACKED'
+                    else:
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_2_node.name} with path of: {os.path.join(texture_directory, tex_names[1])} \n')
+                    
+                    if img_tex_3_node:
+                        # Check if the image datablock exists
+                        if img_tex_3_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[2], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[2])
+                            img_tex_3_node.image = img
+                            img_tex_3_node.image.reload()
+                            img_tex_3_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_3_node.image.source = 'FILE'
                         else:
-                            detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
-                        
-                        links.new(pbr_mapping_node.outputs['Vector'], img_tex_5_node.inputs['Vector'])
-                        links.new(pbr_tc_node.outputs['UV'], pbr_mapping_node.inputs['Vector'])
-                        links.new(pbr_mult_node.outputs['Value'], pbr_mapping_node.inputs['Scale'])
-                        
-                        detail_normal_mix_node.inputs[0].default_value = float(_currentDetailNormalBlend)
-                        
-                        pbr_mult_node.outputs[0].default_value = float(_currentDetailNMMult)
-                        
-                        
-                    elif _currentShader == "ksPerPixelMultiMap_damage":
+                            # Set the image filepath and name
+                            img_tex_3_node.image.filepath = os.path.join(texture_directory, tex_names[2])
+                            img_tex_3_node.image.name = tex_names[2]
+                            img_tex_3_node.image.reload()
+                            img_tex_3_node.image.alpha_mode = 'CHANNEL_PACKED'
+                    else:
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_3_node.name} with path of: {os.path.join(texture_directory, tex_names[2])} \n')
+                    
+                    if img_tex_4_node:
+                        # Check if the image datablock exists
+                        if img_tex_4_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[3], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[3])
+                            img_tex_4_node.image = img
+                            img_tex_4_node.image.reload()
+                            img_tex_4_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_4_node.image.source = 'FILE'
+                        else:
+                            # Set the image filepath and name
+                            img_tex_4_node.image.filepath = os.path.join(texture_directory, tex_names[3])
+                            img_tex_4_node.image.name = tex_names[3]
+                            img_tex_4_node.image.reload()
+                            img_tex_4_node.image.alpha_mode = 'CHANNEL_PACKED'
+                    else:
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_4_node.name} with path of: {os.path.join(texture_directory, tex_names[3])} \n')
+                    
+                    # IsDetail true map the base colors to the mix nodes
+                    if _useDetail == True:
                         # Base Color
                         links.new(img_tex_1_node.outputs['Color'], detail_mix_node.inputs[6])
                         links.new(img_tex_1_node.outputs['Alpha'], alpha_mix_node.inputs[2])
@@ -1358,302 +952,725 @@ def apply_material_settings_from_ini(material_data, ini_filepath):
                             detail_mult_node.outputs[0].default_value = 1.0
                         else:
                             detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
-                else:
-                    # Base Color
-                    links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
+                    else:
+                        # Base Color
+                        links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
+                        
+                        # Normal
+                        links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
+                        links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
+                        
+                        img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
+                        
+                        # Texture Map
+                        links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
+                        
+                        links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
+                        links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
+                        links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
+                        
+                        links.new(separate_color_node.outputs[1], math1_node.inputs[0])
+                        links.new(separate_color_node.outputs[2], math2_node.inputs[0])
+                        
+                        img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
+                        
+                        # Detail 
+                        links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
+                        links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
+                        links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
+                        
+                        if _currentDetailMult is None:
+                            detail_mult_node.outputs[0].default_value = 1.0
+                        else:
+                            detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
                     
-                    # Normal
-                    links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
-                    links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
+                if int(_currentTextureCount) == 5:
+                    if img_tex_1_node:
+                        # Check if the image datablock exists
+                        if img_tex_1_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[0], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[0])
+                            img_tex_1_node.image = img
+                            img_tex_1_node.image.reload()
+                            img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_1_node.image.source = 'FILE'
+                        else:
+                            # Set the image filepath and name
+                            img_tex_1_node.image.filepath = os.path.join(texture_directory, tex_names[0])
+                            img_tex_1_node.image.name = tex_names[0]
+                            img_tex_1_node.image.reload()
+                            img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
+                    else:
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_1_node.name} with path of: {os.path.join(texture_directory, tex_names[0])} \n')
                     
-                    img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
+                    if img_tex_2_node:
+                        # Check if the image datablock exists
+                        if img_tex_2_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[1], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[1])
+                            img_tex_2_node.image = img
+                            img_tex_2_node.image.reload()
+                            img_tex_2_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_2_node.image.source = 'FILE'
+                        else:
+                            # Set the image filepath and name
+                            img_tex_2_node.image.filepath = os.path.join(texture_directory, tex_names[1])
+                            img_tex_2_node.image.name = tex_names[1]
+                            img_tex_2_node.image.reload()
+                            img_tex_2_node.image.alpha_mode = 'CHANNEL_PACKED'
+                    else:
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_2_node.name} with path of: {os.path.join(texture_directory, tex_names[1])} \n')
                     
-                    # Texture Map
-                    links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
+                    if img_tex_3_node:
+                        # Check if the image datablock exists
+                        if img_tex_3_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[2], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[2])
+                            img_tex_3_node.image = img
+                            img_tex_3_node.image.reload()
+                            img_tex_3_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_3_node.image.source = 'FILE'
+                        else:
+                            # Set the image filepath and name
+                            img_tex_3_node.image.filepath = os.path.join(texture_directory, tex_names[2])
+                            img_tex_3_node.image.name = tex_names[2]
+                            img_tex_3_node.image.reload()
+                            img_tex_3_node.image.alpha_mode = 'CHANNEL_PACKED'
+                    else:
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_3_node.name} with path of: {os.path.join(texture_directory, tex_names[2])} \n')
                     
-                    links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
-                    links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
-                    links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
+                    if img_tex_4_node:
+                        # Check if the image datablock exists
+                        if img_tex_4_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[3], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[3])
+                            img_tex_4_node.image = img
+                            img_tex_4_node.image.reload()
+                            img_tex_4_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_4_node.image.source = 'FILE'
+                        else:
+                            # Set the image filepath and name
+                            img_tex_4_node.image.filepath = os.path.join(texture_directory, tex_names[3])
+                            img_tex_4_node.image.name = tex_names[3]
+                            img_tex_4_node.image.reload()
+                            img_tex_4_node.image.alpha_mode = 'CHANNEL_PACKED'
+                    else:
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_4_node.name} with path of: {os.path.join(texture_directory, tex_names[3])} \n')
                     
-                    links.new(separate_color_node.outputs[1], math1_node.inputs[0])
-                    links.new(separate_color_node.outputs[2], math2_node.inputs[0])
+                    if img_tex_5_node:
+                        # Check if the image datablock exists
+                        if img_tex_5_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[4], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[4])
+                            img_tex_5_node.image = img
+                            img_tex_5_node.image.reload()
+                            img_tex_5_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_5_node.image.source = 'FILE'
+                        else:
+                            # Set the image filepath and name
+                            img_tex_5_node.image.filepath = os.path.join(texture_directory, tex_names[4])
+                            img_tex_5_node.image.name = tex_names[4]
+                            img_tex_5_node.image.reload()
+                            img_tex_5_node.image.alpha_mode = 'CHANNEL_PACKED'
+                    else:
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_5_node.name} with path of: {os.path.join(texture_directory, tex_names[4])} \n')
+                
+                    # IsDetail true map the base colors to the mix nodes
+                    if _useDetail == True:
+                        if _currentShader in ("ksDiscBrake", "ksTyres"):
+                            links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
+                        
+                            links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
+                            links.new(img_tex_2_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
+                        
+                            img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
+                        elif _currentShader == "ksPerPixelMultiMap_emissive":
+                            # Base Color
+                            links.new(img_tex_1_node.outputs['Color'], detail_mix_node.inputs[6])
+                            links.new(img_tex_1_node.outputs['Alpha'], alpha_mix_node.inputs[2])
+                            
+                            links.new(img_tex_4_node.outputs['Color'], detail_mix_node.inputs[7])
+                            links.new(img_tex_4_node.outputs['Alpha'], alpha_mix_node.inputs[3])
+                            
+                            alpha_mix_node.inputs[0].default_value = 0.95
+                            
+                            links.new(alpha_mix_node.outputs[0], detail_mix_node.inputs[0])
+                            links.new(detail_mix_node.outputs[2], principled_bsdf_node.inputs['Base Color'])
+                            
+                            # Normal
+                            links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
+                            links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
+                            
+                            img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
+                            
+                            # Texture Map
+                            links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
+                            
+                            links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
+                            links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
+                            links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
+                            
+                            links.new(separate_color_node.outputs[1], math1_node.inputs[0])
+                            links.new(separate_color_node.outputs[2], math2_node.inputs[0])
+                            
+                            img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
+                            
+                            # Detail 
+                            links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
+                            links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
+                            links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
+                            
+                            detail_mult_node.outputs[0].default_value = float(_currentDetailMult)   
+                            
+                            # Emission
+                            links.new(img_tex_5_node.outputs['Color'], principled_bsdf_node.inputs['Emission'])
+                            
+                        elif _currentShader == "ksPerPixelMultiMap_AT_emissive":
+                            # Base Color
+                            links.new(img_tex_1_node.outputs['Color'], detail_mix_node.inputs[6])
+                            links.new(img_tex_1_node.outputs['Alpha'], alpha_mix_node.inputs[2])
+                            
+                            links.new(img_tex_4_node.outputs['Color'], detail_mix_node.inputs[7])
+                            links.new(img_tex_4_node.outputs['Alpha'], alpha_mix_node.inputs[3])
+                            
+                            alpha_mix_node.inputs[0].default_value = 0.95
+                            
+                            links.new(alpha_mix_node.outputs[0], detail_mix_node.inputs[0])
+                            links.new(detail_mix_node.outputs[2], principled_bsdf_node.inputs['Base Color'])
+                            
+                            # Normal
+                            links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
+                            links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
+                            
+                            img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
+                            
+                            # Texture Map
+                            links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
+                            
+                            links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
+                            links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
+                            links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
+                            
+                            links.new(separate_color_node.outputs[1], math1_node.inputs[0])
+                            links.new(separate_color_node.outputs[2], math2_node.inputs[0])
+                            
+                            img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
+                            
+                            # Detail 
+                            links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
+                            links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
+                            links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
+                            
+                            # Emission
+                            links.new(img_tex_5_node.outputs['Color'], principled_bsdf_node.inputs['Emission'])
+                            
+                            detail_mult_node.outputs[0].default_value = float(_currentDetailMult)    
+                            
+                        elif _currentShader in ("ksPerPixelMultiMap_NMDetail", "ksSkinnedMesh_NMDetaill"):
+                            # Base Color
+                            links.new(img_tex_1_node.outputs['Color'], detail_mix_node.inputs[6])
+                            links.new(img_tex_1_node.outputs['Alpha'], alpha_mix_node.inputs[2])
+                            
+                            links.new(img_tex_4_node.outputs['Color'], detail_mix_node.inputs[7])
+                            links.new(img_tex_4_node.outputs['Alpha'], alpha_mix_node.inputs[3])
+                            
+                            alpha_mix_node.inputs[0].default_value = 0.95
+                            
+                            links.new(alpha_mix_node.outputs[0], detail_mix_node.inputs[0])
+                            links.new(detail_mix_node.outputs[2], principled_bsdf_node.inputs['Base Color'])
+                            
+                            # Normal
+                            links.new(img_tex_2_node.outputs['Color'], detail_normal_mix_node.inputs[6])
+                            links.new(img_tex_5_node.outputs['Color'], detail_normal_mix_node.inputs[7])
+                            
+                            links.new(detail_normal_mix_node.outputs[2], normal_map_node.inputs['Color'])
+                            
+                            links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
+                            
+                            img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
+                            img_tex_5_node.image.colorspace_settings.name = 'Non-Color'
+                            
+                            # Texture Map
+                            links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
+                            
+                            links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
+                            links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
+                            links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
+                            
+                            links.new(separate_color_node.outputs[1], math1_node.inputs[0])
+                            links.new(separate_color_node.outputs[2], math2_node.inputs[0])
+                            
+                            img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
+                            
+                            # Detail 
+                            links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
+                            links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
+                            links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
+                            
+                            if _currentDetailMult is None:
+                                detail_mult_node.outputs[0].default_value = 1.0
+                            else:
+                                detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
+                            
+                            links.new(pbr_mapping_node.outputs['Vector'], img_tex_5_node.inputs['Vector'])
+                            links.new(pbr_tc_node.outputs['UV'], pbr_mapping_node.inputs['Vector'])
+                            links.new(pbr_mult_node.outputs['Value'], pbr_mapping_node.inputs['Scale'])
+                            
+                            detail_normal_mix_node.inputs[0].default_value = float(_currentDetailNormalBlend)
+                            
+                            pbr_mult_node.outputs[0].default_value = float(_currentDetailMult)
+                            
+                            
+                        elif _currentShader == "smSticker":
+                            # Base Color
+                            links.new(img_tex_1_node.outputs['Color'], detail_mix_node.inputs[6])
+                            links.new(img_tex_1_node.outputs['Alpha'], alpha_mix_node.inputs[2])
+                            
+                            links.new(img_tex_4_node.outputs['Color'], detail_mix_node.inputs[7])
+                            links.new(img_tex_4_node.outputs['Alpha'], alpha_mix_node.inputs[3])
+                            
+                            alpha_mix_node.inputs[0].default_value = 0.95
+                            
+                            links.new(alpha_mix_node.outputs[0], detail_mix_node.inputs[0])
+                            links.new(detail_mix_node.outputs[2], principled_bsdf_node.inputs['Base Color'])
+                            
+                            # Normal
+                            links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
+                            
+                            links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
+                            
+                            img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
+                            
+                            # Texture Map
+                            links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
+                            
+                            links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
+                            links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
+                            links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
+                            
+                            links.new(separate_color_node.outputs[1], math1_node.inputs[0])
+                            links.new(separate_color_node.outputs[2], math2_node.inputs[0])
+                            
+                            img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
+                            
+                            # Detail 
+                            links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
+                            links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
+                            links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
+                            
+                            if _currentDetailMult is None:
+                                detail_mult_node.outputs[0].default_value = 1.0
+                            else:
+                                detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
+                            
+                            links.new(pbr_mapping_node.outputs['Vector'], img_tex_2_node.inputs['Vector'])
+                            links.new(pbr_tc_node.outputs['UV'], pbr_mapping_node.inputs['Vector'])
+                            links.new(pbr_mult_node.outputs['Value'], pbr_mapping_node.inputs['Scale'])
+                            
+                            pbr_mult_node.outputs[0].default_value = float(_currentDetailNMMult)
+                            
+                            
+                        elif _currentShader == "ksPerPixelMultiMap_AT_NMDetail":
+                            # Base Color
+                            links.new(img_tex_1_node.outputs['Color'], detail_mix_node.inputs[6])
+                            links.new(img_tex_1_node.outputs['Alpha'], alpha_mix_node.inputs[2])
+                            
+                            links.new(img_tex_4_node.outputs['Color'], detail_mix_node.inputs[7])
+                            links.new(img_tex_4_node.outputs['Alpha'], alpha_mix_node.inputs[3])
+                            
+                            alpha_mix_node.inputs[0].default_value = 0.95
+                            
+                            links.new(alpha_mix_node.outputs[0], detail_mix_node.inputs[0])
+                            links.new(detail_mix_node.outputs[2], principled_bsdf_node.inputs['Base Color'])
+                            
+                            # Normal
+                            links.new(img_tex_2_node.outputs['Color'], detail_normal_mix_node.inputs[6])
+                            links.new(img_tex_5_node.outputs['Color'], detail_normal_mix_node.inputs[7])
+                            
+                            links.new(detail_normal_mix_node.outputs[2], normal_map_node.inputs['Color'])
+                            
+                            links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
+                            
+                            img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
+                            img_tex_5_node.image.colorspace_settings.name = 'Non-Color'
+                            
+                            # Texture Map
+                            links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
+                            
+                            links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
+                            links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
+                            links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
+                            
+                            links.new(separate_color_node.outputs[1], math1_node.inputs[0])
+                            links.new(separate_color_node.outputs[2], math2_node.inputs[0])
+                            
+                            img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
+                            
+                            # Detail 
+                            links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
+                            links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
+                            links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
+                            
+                            if _currentDetailMult is None:
+                                detail_mult_node.outputs[0].default_value = 1.0
+                            else:
+                                detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
+                            
+                            links.new(pbr_mapping_node.outputs['Vector'], img_tex_5_node.inputs['Vector'])
+                            links.new(pbr_tc_node.outputs['UV'], pbr_mapping_node.inputs['Vector'])
+                            links.new(pbr_mult_node.outputs['Value'], pbr_mapping_node.inputs['Scale'])
+                            
+                            detail_normal_mix_node.inputs[0].default_value = float(_currentDetailNormalBlend)
+                            
+                            pbr_mult_node.outputs[0].default_value = float(_currentDetailNMMult)
+                            
+                            
+                        elif _currentShader == "ksPerPixelMultiMap_damage":
+                            # Base Color
+                            links.new(img_tex_1_node.outputs['Color'], detail_mix_node.inputs[6])
+                            links.new(img_tex_1_node.outputs['Alpha'], alpha_mix_node.inputs[2])
+                            
+                            links.new(img_tex_4_node.outputs['Color'], detail_mix_node.inputs[7])
+                            links.new(img_tex_4_node.outputs['Alpha'], alpha_mix_node.inputs[3])
+                            
+                            alpha_mix_node.inputs[0].default_value = 0.95
+                            
+                            links.new(alpha_mix_node.outputs[0], detail_mix_node.inputs[0])
+                            links.new(detail_mix_node.outputs[2], principled_bsdf_node.inputs['Base Color'])
+                            
+                            # Normal
+                            links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
+                            links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
+                            
+                            img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
+                            
+                            # Texture Map
+                            links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
+                            
+                            links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
+                            links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
+                            links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
+                            
+                            links.new(separate_color_node.outputs[1], math1_node.inputs[0])
+                            links.new(separate_color_node.outputs[2], math2_node.inputs[0])
+                            
+                            img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
+                            
+                            # Detail 
+                            links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
+                            links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
+                            links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
+                            
+                            if _currentDetailMult is None:
+                                detail_mult_node.outputs[0].default_value = 1.0
+                            else:
+                                detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
+                    else:
+                        # Base Color
+                        links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
+                        
+                        # Normal
+                        links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
+                        links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
+                        
+                        img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
+                        
+                        # Texture Map
+                        links.new(img_tex_3_node.outputs['Color'], separate_color_node.inputs['Color'])
+                        
+                        links.new(separate_color_node.outputs[0], principled_bsdf_node.inputs['Specular'])
+                        links.new(math1_node.outputs[0], principled_bsdf_node.inputs['Roughness'])
+                        links.new(math2_node.outputs[0], principled_bsdf_node.inputs['Metallic'])
+                        
+                        links.new(separate_color_node.outputs[1], math1_node.inputs[0])
+                        links.new(separate_color_node.outputs[2], math2_node.inputs[0])
+                        
+                        img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
+                        
+                        # Detail 
+                        links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
+                        links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
+                        links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
+                        
+                        if _currentDetailMult is None:
+                            detail_mult_node.outputs[0].default_value = 1.0
+                        else:
+                            detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
                     
-                    img_tex_3_node.image.colorspace_settings.name = 'Non-Color'
                     
-                    # Detail 
-                    links.new(mapping_node.outputs['Vector'], img_tex_4_node.inputs['Vector'])
-                    links.new(tc_node.outputs['UV'], mapping_node.inputs['Vector'])
-                    links.new(detail_mult_node.outputs['Value'], mapping_node.inputs['Scale'])
+                #if int(_currentTextureCount) > 5:
+                if int(_currentTextureCount) == 6:
+                    if img_tex_1_node:
+                        # Check if the image datablock exists
+                        if img_tex_1_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[0], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[0])
+                            img_tex_1_node.image = img
+                            img_tex_1_node.image.reload()
+                            img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_1_node.image.source = 'FILE'
+                        else:
+                            # Set the image filepath and name
+                            img_tex_1_node.image.filepath = os.path.join(texture_directory, tex_names[0])
+                            img_tex_1_node.image.name = tex_names[0]
+                            img_tex_1_node.image.reload()
+                            img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
+                    else:
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_1_node.name} with path of: {os.path.join(texture_directory, tex_names[0])} \n')
                     
-                    if _currentDetailMult is None:
-                        detail_mult_node.outputs[0].default_value = 1.0
+                    if img_tex_2_node:
+                        # Check if the image datablock exists
+                        if img_tex_2_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[1], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[1])
+                            img_tex_2_node.image = img
+                            img_tex_2_node.image.reload()
+                            img_tex_2_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_2_node.image.source = 'FILE'
+                        else:
+                            # Set the image filepath and name
+                            img_tex_2_node.image.filepath = os.path.join(texture_directory, tex_names[1])
+                            img_tex_2_node.image.name = tex_names[1]
+                            img_tex_2_node.image.reload()
+                            img_tex_2_node.image.alpha_mode = 'CHANNEL_PACKED'
                     else:
-                        detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
-                
-                
-            #if int(_currentTextureCount) > 5:
-            if int(_currentTextureCount) == 6:
-                if img_tex_1_node:
-                    # Check if the image datablock exists
-                    if img_tex_1_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[0], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[0])
-                        img_tex_1_node.image = img
-                        img_tex_1_node.image.reload()
-                        img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_1_node.image.source = 'FILE'
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_2_node.name} with path of: {os.path.join(texture_directory, tex_names[1])} \n')
+                    
+                    if img_tex_3_node:
+                        # Check if the image datablock exists
+                        if img_tex_3_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[2], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[2])
+                            img_tex_3_node.image = img
+                            img_tex_3_node.image.reload()
+                            img_tex_3_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_3_node.image.source = 'FILE'
+                        else:
+                            # Set the image filepath and name
+                            img_tex_3_node.image.filepath = os.path.join(texture_directory, tex_names[2])
+                            img_tex_3_node.image.name = tex_names[2]
+                            img_tex_3_node.image.reload()
+                            img_tex_3_node.image.alpha_mode = 'CHANNEL_PACKED'
                     else:
-                        # Set the image filepath and name
-                        img_tex_1_node.image.filepath = os.path.join(texture_directory, tex_names[0])
-                        img_tex_1_node.image.name = tex_names[0]
-                        img_tex_1_node.image.reload()
-                        img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_1_node.name} with path of: {os.path.join(texture_directory, tex_names[0])} \n')
-                
-                if img_tex_2_node:
-                    # Check if the image datablock exists
-                    if img_tex_2_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[1], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[1])
-                        img_tex_2_node.image = img
-                        img_tex_2_node.image.reload()
-                        img_tex_2_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_2_node.image.source = 'FILE'
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_3_node.name} with path of: {os.path.join(texture_directory, tex_names[2])} \n')
+                    
+                    if img_tex_4_node:
+                        # Check if the image datablock exists
+                        if img_tex_4_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[3], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[3])
+                            img_tex_4_node.image = img
+                            img_tex_4_node.image.reload()
+                            img_tex_4_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_4_node.image.source = 'FILE'
+                        else:
+                            # Set the image filepath and name
+                            img_tex_4_node.image.filepath = os.path.join(texture_directory, tex_names[3])
+                            img_tex_4_node.image.name = tex_names[3]
+                            img_tex_4_node.image.reload()
+                            img_tex_4_node.image.alpha_mode = 'CHANNEL_PACKED'
                     else:
-                        # Set the image filepath and name
-                        img_tex_2_node.image.filepath = os.path.join(texture_directory, tex_names[1])
-                        img_tex_2_node.image.name = tex_names[1]
-                        img_tex_2_node.image.reload()
-                        img_tex_2_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_2_node.name} with path of: {os.path.join(texture_directory, tex_names[1])} \n')
-                
-                if img_tex_3_node:
-                    # Check if the image datablock exists
-                    if img_tex_3_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[2], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[2])
-                        img_tex_3_node.image = img
-                        img_tex_3_node.image.reload()
-                        img_tex_3_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_3_node.image.source = 'FILE'
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_4_node.name} with path of: {os.path.join(texture_directory, tex_names[3])} \n')
+                    
+                    if img_tex_5_node:
+                        # Check if the image datablock exists
+                        if img_tex_5_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[4], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[4])
+                            img_tex_5_node.image = img
+                            img_tex_5_node.image.reload()
+                            img_tex_5_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_5_node.image.source = 'FILE'
+                        else:
+                            # Set the image filepath and name
+                            img_tex_5_node.image.filepath = os.path.join(texture_directory, tex_names[4])
+                            img_tex_5_node.image.name = tex_names[4]
+                            img_tex_5_node.image.reload()
+                            img_tex_5_node.image.alpha_mode = 'CHANNEL_PACKED'
                     else:
-                        # Set the image filepath and name
-                        img_tex_3_node.image.filepath = os.path.join(texture_directory, tex_names[2])
-                        img_tex_3_node.image.name = tex_names[2]
-                        img_tex_3_node.image.reload()
-                        img_tex_3_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_3_node.name} with path of: {os.path.join(texture_directory, tex_names[2])} \n')
-                
-                if img_tex_4_node:
-                    # Check if the image datablock exists
-                    if img_tex_4_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[3], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[3])
-                        img_tex_4_node.image = img
-                        img_tex_4_node.image.reload()
-                        img_tex_4_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_4_node.image.source = 'FILE'
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_5_node.name} with path of: {os.path.join(texture_directory, tex_names[4])} \n')
+                    
+                    if img_tex_6_node:
+                        # Check if the image datablock exists
+                        if img_tex_6_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[5], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[5])
+                            img_tex_6_node.image = img
+                            img_tex_6_node.image.reload()
+                            img_tex_6_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_6_node.image.source = 'FILE'
+                        else:
+                            # Set the image filepath and name
+                            img_tex_6_node.image.filepath = os.path.join(texture_directory, tex_names[5])
+                            img_tex_6_node.image.name = tex_names[5]
+                            img_tex_6_node.image.reload()
+                            img_tex_6_node.image.alpha_mode = 'CHANNEL_PACKED'
                     else:
-                        # Set the image filepath and name
-                        img_tex_4_node.image.filepath = os.path.join(texture_directory, tex_names[3])
-                        img_tex_4_node.image.name = tex_names[3]
-                        img_tex_4_node.image.reload()
-                        img_tex_4_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_4_node.name} with path of: {os.path.join(texture_directory, tex_names[3])} \n')
-                
-                if img_tex_5_node:
-                    # Check if the image datablock exists
-                    if img_tex_5_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[4], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[4])
-                        img_tex_5_node.image = img
-                        img_tex_5_node.image.reload()
-                        img_tex_5_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_5_node.image.source = 'FILE'
-                    else:
-                        # Set the image filepath and name
-                        img_tex_5_node.image.filepath = os.path.join(texture_directory, tex_names[4])
-                        img_tex_5_node.image.name = tex_names[4]
-                        img_tex_5_node.image.reload()
-                        img_tex_5_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_5_node.name} with path of: {os.path.join(texture_directory, tex_names[4])} \n')
-                
-                if img_tex_6_node:
-                    # Check if the image datablock exists
-                    if img_tex_6_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[5], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[5])
-                        img_tex_6_node.image = img
-                        img_tex_6_node.image.reload()
-                        img_tex_6_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_6_node.image.source = 'FILE'
-                    else:
-                        # Set the image filepath and name
-                        img_tex_6_node.image.filepath = os.path.join(texture_directory, tex_names[5])
-                        img_tex_6_node.image.name = tex_names[5]
-                        img_tex_6_node.image.reload()
-                        img_tex_6_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_6_node.name} with path of: {os.path.join(texture_directory, tex_names[5])} \n')
-                
-                print(f"Currently unsupported amount of textures. Renaming of files will still occur but no shader details will be setup.")
-
-            if int(_currentTextureCount) == 7:
-                if img_tex_1_node:
-                    # Check if the image datablock exists
-                    if img_tex_1_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[0], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[0])
-                        img_tex_1_node.image = img
-                        img_tex_1_node.image.reload()
-                        img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_1_node.image.source = 'FILE'
-                    else:
-                        # Set the image filepath and name
-                        img_tex_1_node.image.filepath = os.path.join(texture_directory, tex_names[0])
-                        img_tex_1_node.image.name = tex_names[0]
-                        img_tex_1_node.image.reload()
-                        img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_1_node.name} with path of: {os.path.join(texture_directory, tex_names[0])} \n')
-                
-                if img_tex_2_node:
-                    # Check if the image datablock exists
-                    if img_tex_2_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[1], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[1])
-                        img_tex_2_node.image = img
-                        img_tex_2_node.image.reload()
-                        img_tex_2_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_2_node.image.source = 'FILE'
-                    else:
-                        # Set the image filepath and name
-                        img_tex_2_node.image.filepath = os.path.join(texture_directory, tex_names[1])
-                        img_tex_2_node.image.name = tex_names[1]
-                        img_tex_2_node.image.reload()
-                        img_tex_2_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_2_node.name} with path of: {os.path.join(texture_directory, tex_names[1])} \n')
-                
-                if img_tex_3_node:
-                    # Check if the image datablock exists
-                    if img_tex_3_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[2], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[2])
-                        img_tex_3_node.image = img
-                        img_tex_3_node.image.reload()
-                        img_tex_3_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_3_node.image.source = 'FILE'
-                    else:
-                        # Set the image filepath and name
-                        img_tex_3_node.image.filepath = os.path.join(texture_directory, tex_names[2])
-                        img_tex_3_node.image.name = tex_names[2]
-                        img_tex_3_node.image.reload()
-                        img_tex_3_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_3_node.name} with path of: {os.path.join(texture_directory, tex_names[2])} \n')
-                
-                if img_tex_4_node:
-                    # Check if the image datablock exists
-                    if img_tex_4_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[3], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[3])
-                        img_tex_4_node.image = img
-                        img_tex_4_node.image.reload()
-                        img_tex_4_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_4_node.image.source = 'FILE'
-                    else:
-                        # Set the image filepath and name
-                        img_tex_4_node.image.filepath = os.path.join(texture_directory, tex_names[3])
-                        img_tex_4_node.image.name = tex_names[3]
-                        img_tex_4_node.image.reload()
-                        img_tex_4_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_4_node.name} with path of: {os.path.join(texture_directory, tex_names[3])} \n')
-                
-                if img_tex_5_node:
-                    # Check if the image datablock exists
-                    if img_tex_5_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[4], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[4])
-                        img_tex_5_node.image = img
-                        img_tex_5_node.image.reload()
-                        img_tex_5_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_5_node.image.source = 'FILE'
-                    else:
-                        # Set the image filepath and name
-                        img_tex_5_node.image.filepath = os.path.join(texture_directory, tex_names[4])
-                        img_tex_5_node.image.name = tex_names[4]
-                        img_tex_5_node.image.reload()
-                        img_tex_5_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_5_node.name} with path of: {os.path.join(texture_directory, tex_names[4])} \n')
-                
-                if img_tex_6_node:
-                    # Check if the image datablock exists
-                    if img_tex_6_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[5], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[5])
-                        img_tex_6_node.image = img
-                        img_tex_6_node.image.reload()
-                        img_tex_6_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_6_node.image.source = 'FILE'
-                    else:
-                        # Set the image filepath and name
-                        img_tex_6_node.image.filepath = os.path.join(texture_directory, tex_names[5])
-                        img_tex_6_node.image.name = tex_names[5]
-                        img_tex_6_node.image.reload()
-                        img_tex_6_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_6_node.name} with path of: {os.path.join(texture_directory, tex_names[5])} \n')
-                
-                if img_tex_7_node:
-                    # Check if the image datablock exists
-                    if img_tex_7_node.image is None:
-                        # Create a new image datablock and set it to the node
-                        img = bpy.data.images.new(name=tex_names[6], width=1, height=1)
-                        img.filepath = os.path.join(texture_directory, tex_names[6])
-                        img_tex_7_node.image = img
-                        img_tex_7_node.image.reload()
-                        img_tex_7_node.image.alpha_mode = 'CHANNEL_PACKED'
-                        img_tex_7_node.image.source = 'FILE'
-                    else:
-                        # Set the image filepath and name
-                        img_tex_7_node.image.filepath = os.path.join(texture_directory, tex_names[6])
-                        img_tex_7_node.image.name = tex_names[6]
-                        img_tex_7_node.image.reload()
-                        img_tex_7_node.image.alpha_mode = 'CHANNEL_PACKED'
-                else:
-                    Error_result += (f'Material: {_currentMatName} missing image on {img_tex_7_node.name} with path of: {os.path.join(texture_directory, tex_names[6])} \n')
-                
-                print(f"Currently unsupported amount of textures. Renaming of files will still occur but no shader details will be setup.")
-                
-            if int(_currentTextureCount) == 8:
-                print(f"Currently unsupported amount of textures. Renaming of files will still occur but no shader details will be setup.")
-                
-            if int(_currentTextureCount) == 9:
-                print(f"Currently unsupported amount of textures. Renaming of files will still occur but no shader details will be setup.")
-                
-            if int(_currentTextureCount) == 10:
-                print(f"Currently unsupported amount of textures. Renaming of files will still occur but no shader details will be setup.")
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_6_node.name} with path of: {os.path.join(texture_directory, tex_names[5])} \n')
+                    
+                    print(f"Currently unsupported amount of textures. Renaming of files will still occur but no shader details will be setup.")
     
+                if int(_currentTextureCount) == 7:
+                    if img_tex_1_node:
+                        # Check if the image datablock exists
+                        if img_tex_1_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[0], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[0])
+                            img_tex_1_node.image = img
+                            img_tex_1_node.image.reload()
+                            img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_1_node.image.source = 'FILE'
+                        else:
+                            # Set the image filepath and name
+                            img_tex_1_node.image.filepath = os.path.join(texture_directory, tex_names[0])
+                            img_tex_1_node.image.name = tex_names[0]
+                            img_tex_1_node.image.reload()
+                            img_tex_1_node.image.alpha_mode = 'CHANNEL_PACKED'
+                    else:
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_1_node.name} with path of: {os.path.join(texture_directory, tex_names[0])} \n')
+                    
+                    if img_tex_2_node:
+                        # Check if the image datablock exists
+                        if img_tex_2_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[1], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[1])
+                            img_tex_2_node.image = img
+                            img_tex_2_node.image.reload()
+                            img_tex_2_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_2_node.image.source = 'FILE'
+                        else:
+                            # Set the image filepath and name
+                            img_tex_2_node.image.filepath = os.path.join(texture_directory, tex_names[1])
+                            img_tex_2_node.image.name = tex_names[1]
+                            img_tex_2_node.image.reload()
+                            img_tex_2_node.image.alpha_mode = 'CHANNEL_PACKED'
+                    else:
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_2_node.name} with path of: {os.path.join(texture_directory, tex_names[1])} \n')
+                    
+                    if img_tex_3_node:
+                        # Check if the image datablock exists
+                        if img_tex_3_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[2], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[2])
+                            img_tex_3_node.image = img
+                            img_tex_3_node.image.reload()
+                            img_tex_3_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_3_node.image.source = 'FILE'
+                        else:
+                            # Set the image filepath and name
+                            img_tex_3_node.image.filepath = os.path.join(texture_directory, tex_names[2])
+                            img_tex_3_node.image.name = tex_names[2]
+                            img_tex_3_node.image.reload()
+                            img_tex_3_node.image.alpha_mode = 'CHANNEL_PACKED'
+                    else:
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_3_node.name} with path of: {os.path.join(texture_directory, tex_names[2])} \n')
+                    
+                    if img_tex_4_node:
+                        # Check if the image datablock exists
+                        if img_tex_4_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[3], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[3])
+                            img_tex_4_node.image = img
+                            img_tex_4_node.image.reload()
+                            img_tex_4_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_4_node.image.source = 'FILE'
+                        else:
+                            # Set the image filepath and name
+                            img_tex_4_node.image.filepath = os.path.join(texture_directory, tex_names[3])
+                            img_tex_4_node.image.name = tex_names[3]
+                            img_tex_4_node.image.reload()
+                            img_tex_4_node.image.alpha_mode = 'CHANNEL_PACKED'
+                    else:
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_4_node.name} with path of: {os.path.join(texture_directory, tex_names[3])} \n')
+                    
+                    if img_tex_5_node:
+                        # Check if the image datablock exists
+                        if img_tex_5_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[4], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[4])
+                            img_tex_5_node.image = img
+                            img_tex_5_node.image.reload()
+                            img_tex_5_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_5_node.image.source = 'FILE'
+                        else:
+                            # Set the image filepath and name
+                            img_tex_5_node.image.filepath = os.path.join(texture_directory, tex_names[4])
+                            img_tex_5_node.image.name = tex_names[4]
+                            img_tex_5_node.image.reload()
+                            img_tex_5_node.image.alpha_mode = 'CHANNEL_PACKED'
+                    else:
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_5_node.name} with path of: {os.path.join(texture_directory, tex_names[4])} \n')
+                    
+                    if img_tex_6_node:
+                        # Check if the image datablock exists
+                        if img_tex_6_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[5], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[5])
+                            img_tex_6_node.image = img
+                            img_tex_6_node.image.reload()
+                            img_tex_6_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_6_node.image.source = 'FILE'
+                        else:
+                            # Set the image filepath and name
+                            img_tex_6_node.image.filepath = os.path.join(texture_directory, tex_names[5])
+                            img_tex_6_node.image.name = tex_names[5]
+                            img_tex_6_node.image.reload()
+                            img_tex_6_node.image.alpha_mode = 'CHANNEL_PACKED'
+                    else:
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_6_node.name} with path of: {os.path.join(texture_directory, tex_names[5])} \n')
+                    
+                    if img_tex_7_node:
+                        # Check if the image datablock exists
+                        if img_tex_7_node.image is None:
+                            # Create a new image datablock and set it to the node
+                            img = bpy.data.images.new(name=tex_names[6], width=1, height=1)
+                            img.filepath = os.path.join(texture_directory, tex_names[6])
+                            img_tex_7_node.image = img
+                            img_tex_7_node.image.reload()
+                            img_tex_7_node.image.alpha_mode = 'CHANNEL_PACKED'
+                            img_tex_7_node.image.source = 'FILE'
+                        else:
+                            # Set the image filepath and name
+                            img_tex_7_node.image.filepath = os.path.join(texture_directory, tex_names[6])
+                            img_tex_7_node.image.name = tex_names[6]
+                            img_tex_7_node.image.reload()
+                            img_tex_7_node.image.alpha_mode = 'CHANNEL_PACKED'
+                    else:
+                        Error_result += (f'Material: {_currentMatName} missing image on {img_tex_7_node.name} with path of: {os.path.join(texture_directory, tex_names[6])} \n')
+                    
+                    print(f"Currently unsupported amount of textures. Renaming of files will still occur but no shader details will be setup.")
+                    
+                if int(_currentTextureCount) == 8:
+                    print(f"Currently unsupported amount of textures. Renaming of files will still occur but no shader details will be setup.")
+                    
+                if int(_currentTextureCount) == 9:
+                    print(f"Currently unsupported amount of textures. Renaming of files will still occur but no shader details will be setup.")
+                    
+                if int(_currentTextureCount) == 10:
+                    print(f"Currently unsupported amount of textures. Renaming of files will still occur but no shader details will be setup.")
+            except AttributeError as e:
+                print(f"Error processing material '{_currentMatName}': {str(e)}")
+                continue
+                
+    ini_error_text += f'----------------------------------------'
+    print(f"{ini_error_text}")            
     print(f'Missing texture report: \n {Error_result} \n')
 
 def toggle_show_backface(selected_objects):
