@@ -1018,7 +1018,7 @@ def apply_material_settings_from_ini(material_data):
                 continue
             
             # Add in additional logic to check the material being used.
-            material_used = any(obj for obj in bpy.data.objects if _currentMat in obj.data.materials)
+            material_used = any(obj for obj in bpy.data.objects if hasattr(obj.data, 'materials') and _currentMat in obj.data.materials)
             if not material_used:
                 print(f"Material '{_currentMatName}' not used on any mesh object. Skipping.")
                 continue
