@@ -8,6 +8,12 @@ def run_fbx_converter(input_file):
     addon_dir = os.path.dirname(__file__)
     exe_path = os.path.join(addon_dir, "FbxConverter.exe")
 
+    # Check if the executable exists
+    if not os.path.exists(exe_path):
+        raise FileNotFoundError(f"The FbxConverter executable was not found at: {exe_path}")
+    
+    print(f"Running FbxConverter from: {exe_path}")
+
     # Create a temporary file for the conversion
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".fbx")
     temp_file.close()
@@ -25,11 +31,16 @@ def run_fbx_converter(input_file):
         os.remove(temp_file.name)  # Clean up the temporary file if there's an error
         return {'ERROR': e.stderr.decode()}
 
-
 def run_kn5_converter(input_file, output_type):
     # Path to the KN5Converter executable
     addon_dir = os.path.dirname(__file__)
     exe_path = os.path.join(addon_dir, "kn5conv.exe")
+
+    # Check if the executable exists
+    if not os.path.exists(exe_path):
+        raise FileNotFoundError(f"The KN5Converter executable was not found at: {exe_path}")
+
+    print(f"Running KN5Converter from: {exe_path}")
 
     # Determine the output file name based on the input file and output type
     output_file = os.path.splitext(input_file)[0] + f".{output_type}"
