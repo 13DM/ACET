@@ -1770,6 +1770,9 @@ class OBJECT_PT_ac_shader(bpy.types.Panel):
         
         layout.operator("object.run_fbx_converter", text="Convert to FBX to Binary")
         
+        # Text block that says "Standard Conversion"
+        row = layout.row()
+        row.label(text="INI Operations", icon='NONE')        
         
         layout.operator("acutil.read_ini", text="Load Persistence")
         layout.operator("acutil.backface", text="Set Transparency")
