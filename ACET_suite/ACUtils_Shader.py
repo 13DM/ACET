@@ -1,7 +1,7 @@
 #bl_info = {
 #    "name": "ACUtils",
 #    "author": "Dad",
-#    "version": (1, 0, 1),
+#    "version": (1, 0, 0),
 #    "blender": (3, 4, 0),
 #    "location": "View3D > Sidebar > Tool",
 #    "description": "Load persistence from ini and handle transparency of objects.",
@@ -434,11 +434,83 @@ def custom_ini_parser(filepath):
 
     return material_data
     
+
+# function to verify image nodes actually have an image. If not, then ya know add it. 
+
+def apply_image_to_node(node, filepath):
+    """
+    Apply an image to a Blender node if it does not already have one.
+
+    Args:
+    node (bpy.types.Node): The node to check and apply the image to.
+    filepath (str): The full path to the image file.
+    """
+    # Check if the node has an image already
+    if not hasattr(node, 'image') or node.image is None:
+        # Extract the image name from the filepath
+        image_name = os.path.basename(filepath)
+        
+        # Check if the image already exists in Blender's data blocks
+        existing_image = bpy.data.images.get(image_name)
+        if existing_image:
+            # Check the dimensions of the existing image
+            #if existing_image.size[0] < 2 or existing_image.size[1] < 2:
+                #print(f"Image {image_name} is too small: {existing_image.size[0]}x{existing_image.size[1]}")
+            node.image = existing_image
+            return True
+        else:
+            # Check if the provided filepath is a valid image file
+            if os.path.isfile(filepath) and filepath.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif', '.dds')):
+                try:
+                    # Load the image from the filepath
+                    image = bpy.data.images.load(filepath)
+                    # Check the dimensions of the loaded image
+                    #if image.size[0] < 2 or image.size[1] < 2:
+                        #print(f"Loaded image {image_name} is too small: {image.size[0]}x{image.size[1]}")
+                    # Apply the image to the node
+                    node.image = image
+                    return True
+                except Exception as e:
+                    print(f"Failed to load image: {e}")
+                    return False
+            else:
+                print(f"Invalid image file path: {filepath}")
+                return False
+    else:
+        #print(f"Node already has an image: {node.image.name}")
+        return False
+
+# A quick function to check if the texture is encrypted still and needs to be replaced. 
+
+def is_texture_encrypted(node):
+    """
+    Check if the image associated with the specified node is smaller than 2x2 pixels.
+
+    Args:
+    node (bpy.types.Node): The node to check the image size for.
+
+    Returns:
+    bool: True if the image is smaller than 2x2 pixels, False otherwise.
+    """
+    if hasattr(node, 'image') and node.image is not None:
+        image = node.image
+        # Check the dimensions of the image
+        if image.size[0] < 2 or image.size[1] < 2:
+            print(f"Image {image.name} is too small: {image.size[0]}x{image.size[1]}")
+            return True
+        else:
+            return False
+    else:
+        print("Node does not have an image.")
+        return False
+
 def apply_material_settings_from_ini(material_data, ini_filepath):
     # Similar implementation as before, but using the custom parsed data
     print(f"{material_data}")
     
     tex_names = []
+    
+    encrypted_textures = []
     
     ini_path, ini_file = os.path.split(ini_filepath)
     texture_directory = os.path.join(ini_path, "texture")
@@ -677,6 +749,7 @@ def apply_material_settings_from_ini(material_data, ini_filepath):
                         links.new(img_tex_1_node.outputs['Alpha'], principled_bsdf_node.inputs['Alpha'])
                 
                 if int(_currentTextureCount) == 1:
+                    apply_image_to_node(img_tex_1_node, os.path.join(texture_directory, tex_names[0]))
                     links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
                     
                     if img_tex_1_node:
@@ -698,8 +771,14 @@ def apply_material_settings_from_ini(material_data, ini_filepath):
                     else:
                         Error_result += (f'Material: {_currentMatName} missing image on {img_tex_1_node.name} with path of: {os.path.join(texture_directory, tex_names[0])} \n')
                         
+                    if is_texture_encrypted(img_tex_1_node) and tex_names[0] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[0]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[0])
                     
                 if int(_currentTextureCount) == 2:
+                    apply_image_to_node(img_tex_1_node, os.path.join(texture_directory, tex_names[0]))
+                    apply_image_to_node(img_tex_2_node, os.path.join(texture_directory, tex_names[1]))
+                    
                     if img_tex_1_node:
                         # Check if the image datablock exists
                         if img_tex_1_node.image is None:
@@ -749,8 +828,20 @@ def apply_material_settings_from_ini(material_data, ini_filepath):
                     if _currentShader != "ksPerPixelNM_UVMult":
                         print(f"WARN: Shader type: {_currentShader} utilizes multipliers which are not configured for the base color or normal texture.")
                     
+                    if is_texture_encrypted(img_tex_1_node) and tex_names[0] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[0]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[0])
+                    if is_texture_encrypted(img_tex_2_node) and tex_names[1] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[1]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[1])
+                    
                     
                 if int(_currentTextureCount) == 3:
+                    # verify that each node needed has an image. Cause thats important. 
+                    apply_image_to_node(img_tex_1_node, os.path.join(texture_directory, tex_names[0]))
+                    apply_image_to_node(img_tex_2_node, os.path.join(texture_directory, tex_names[1]))
+                    apply_image_to_node(img_tex_3_node, os.path.join(texture_directory, tex_names[2]))
+                    
                     if img_tex_1_node:
                         # Check if the image datablock exists
                         if img_tex_1_node.image is None:
@@ -833,8 +924,23 @@ def apply_material_settings_from_ini(material_data, ini_filepath):
                     
                         print(f"WARN: Shader type: {_currentShader} utilizes multipliers which are not configured for the base color or normal texture.")
                     
+                    if is_texture_encrypted(img_tex_1_node) and tex_names[0] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[0]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[0])
+                    if is_texture_encrypted(img_tex_2_node) and tex_names[1] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[1]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[1])
+                    if is_texture_encrypted(img_tex_3_node) and tex_names[2] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[2]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[2])
                     
                 if int(_currentTextureCount) == 4:
+                    # verify that each node needed has an image. Cause thats important. 
+                    apply_image_to_node(img_tex_1_node, os.path.join(texture_directory, tex_names[0]))
+                    apply_image_to_node(img_tex_2_node, os.path.join(texture_directory, tex_names[1]))
+                    apply_image_to_node(img_tex_3_node, os.path.join(texture_directory, tex_names[2]))
+                    apply_image_to_node(img_tex_4_node, os.path.join(texture_directory, tex_names[3]))
+                    
                     if img_tex_1_node:
                         # Check if the image datablock exists
                         if img_tex_1_node.image is None:
@@ -983,8 +1089,28 @@ def apply_material_settings_from_ini(material_data, ini_filepath):
                             detail_mult_node.outputs[0].default_value = 1.0
                         else:
                             detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
-                    
+
+                    if is_texture_encrypted(img_tex_1_node) and tex_names[0] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[0]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[0])
+                    if is_texture_encrypted(img_tex_2_node) and tex_names[1] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[1]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[1])
+                    if is_texture_encrypted(img_tex_3_node) and tex_names[2] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[2]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[2])
+                    if is_texture_encrypted(img_tex_4_node) and tex_names[3] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[3]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[3])
+
                 if int(_currentTextureCount) == 5:
+                    # verify that each node needed has an image. Cause thats important. 
+                    apply_image_to_node(img_tex_1_node, os.path.join(texture_directory, tex_names[0]))
+                    apply_image_to_node(img_tex_2_node, os.path.join(texture_directory, tex_names[1]))
+                    apply_image_to_node(img_tex_3_node, os.path.join(texture_directory, tex_names[2]))
+                    apply_image_to_node(img_tex_4_node, os.path.join(texture_directory, tex_names[3]))
+                    apply_image_to_node(img_tex_5_node, os.path.join(texture_directory, tex_names[4]))
+                    
                     if img_tex_1_node:
                         # Check if the image datablock exists
                         if img_tex_1_node.image is None:
@@ -1401,10 +1527,34 @@ def apply_material_settings_from_ini(material_data, ini_filepath):
                             detail_mult_node.outputs[0].default_value = 1.0
                         else:
                             detail_mult_node.outputs[0].default_value = float(_currentDetailMult)
-                    
+
+                    if is_texture_encrypted(img_tex_1_node) and tex_names[0] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[0]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[0])
+                    if is_texture_encrypted(img_tex_2_node) and tex_names[1] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[1]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[1])
+                    if is_texture_encrypted(img_tex_3_node) and tex_names[2] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[2]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[2])
+                    if is_texture_encrypted(img_tex_4_node) and tex_names[3] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[3]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[3])
+                    if is_texture_encrypted(img_tex_5_node) and tex_names[4] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[4]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[4])
+
                     
                 #if int(_currentTextureCount) > 5:
                 if int(_currentTextureCount) == 6:
+                    # verify that each node needed has an image. Cause thats important. 
+                    apply_image_to_node(img_tex_1_node, os.path.join(texture_directory, tex_names[0]))
+                    apply_image_to_node(img_tex_2_node, os.path.join(texture_directory, tex_names[1]))
+                    apply_image_to_node(img_tex_3_node, os.path.join(texture_directory, tex_names[2]))
+                    apply_image_to_node(img_tex_4_node, os.path.join(texture_directory, tex_names[3]))
+                    apply_image_to_node(img_tex_5_node, os.path.join(texture_directory, tex_names[4]))
+                    apply_image_to_node(img_tex_6_node, os.path.join(texture_directory, tex_names[5]))
+                    
                     if img_tex_1_node:
                         # Check if the image datablock exists
                         if img_tex_1_node.image is None:
@@ -1519,9 +1669,37 @@ def apply_material_settings_from_ini(material_data, ini_filepath):
                     else:
                         Error_result += (f'Material: {_currentMatName} missing image on {img_tex_6_node.name} with path of: {os.path.join(texture_directory, tex_names[5])} \n')
                     
+                    if is_texture_encrypted(img_tex_1_node) and tex_names[0] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[0]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[0])
+                    if is_texture_encrypted(img_tex_2_node) and tex_names[1] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[1]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[1])
+                    if is_texture_encrypted(img_tex_3_node) and tex_names[2] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[2]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[2])
+                    if is_texture_encrypted(img_tex_4_node) and tex_names[3] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[3]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[3])
+                    if is_texture_encrypted(img_tex_5_node) and tex_names[4] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[4]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[4])
+                    if is_texture_encrypted(img_tex_6_node) and tex_names[5] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[5]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[5])
+                    
                     print(f"Currently unsupported amount of textures. Renaming of files will still occur but no shader details will be setup.")
     
                 if int(_currentTextureCount) == 7:
+                    # verify that each node needed has an image. Cause thats important. 
+                    apply_image_to_node(img_tex_1_node, os.path.join(texture_directory, tex_names[0]))
+                    apply_image_to_node(img_tex_2_node, os.path.join(texture_directory, tex_names[1]))
+                    apply_image_to_node(img_tex_3_node, os.path.join(texture_directory, tex_names[2]))
+                    apply_image_to_node(img_tex_4_node, os.path.join(texture_directory, tex_names[3]))
+                    apply_image_to_node(img_tex_5_node, os.path.join(texture_directory, tex_names[4]))
+                    apply_image_to_node(img_tex_6_node, os.path.join(texture_directory, tex_names[5]))
+                    apply_image_to_node(img_tex_7_node, os.path.join(texture_directory, tex_names[6]))
+                    
                     if img_tex_1_node:
                         # Check if the image datablock exists
                         if img_tex_1_node.image is None:
@@ -1654,6 +1832,28 @@ def apply_material_settings_from_ini(material_data, ini_filepath):
                             img_tex_7_node.image.alpha_mode = 'CHANNEL_PACKED'
                     else:
                         Error_result += (f'Material: {_currentMatName} missing image on {img_tex_7_node.name} with path of: {os.path.join(texture_directory, tex_names[6])} \n')
+                        
+                    if is_texture_encrypted(img_tex_1_node) and tex_names[0] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[0]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[0])
+                    if is_texture_encrypted(img_tex_2_node) and tex_names[1] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[1]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[1])
+                    if is_texture_encrypted(img_tex_3_node) and tex_names[2] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[2]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[2])
+                    if is_texture_encrypted(img_tex_4_node) and tex_names[3] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[3]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[3])
+                    if is_texture_encrypted(img_tex_5_node) and tex_names[4] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[4]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[4])
+                    if is_texture_encrypted(img_tex_6_node) and tex_names[5] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[5]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[5])
+                    if is_texture_encrypted(img_tex_7_node) and tex_names[6] not in encrypted_textures:
+                        ini_error_text += f'{tex_names[6]} is encrypted. \n'
+                        encrypted_textures.append(tex_names[6])
                     
                     print(f"Currently unsupported amount of textures. Renaming of files will still occur but no shader details will be setup.")
                     
