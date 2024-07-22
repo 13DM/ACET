@@ -6,6 +6,6 @@ This is not entirely an all in one tool, but is as close as could be. It does re
 
 This is not enteded for public release or use, but more a personal project.
 
-Currently only supporting Blender 3.4 - 3.6.5. Blender 4+ support in the future but right now only supporting LTS (cause it's what I use)
+Currently supporting Blender 3.6 LTS as well as Blender 4.2 LTS as of the latest release.
 
--Dad
+-D
