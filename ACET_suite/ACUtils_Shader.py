@@ -904,7 +904,7 @@ def apply_material_settings_from_ini(material_data, ini_filepath):
                         links.new(img_tex_1_node.outputs['Color'], principled_bsdf_node.inputs['Base Color'])
                         
                         links.new(img_tex_2_node.outputs['Color'], normal_map_node.inputs['Color'])
-                        links.new(img_tex_2_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
+                        links.new(normal_map_node.outputs['Normal'], principled_bsdf_node.inputs['Normal'])
                         
                         img_tex_2_node.image.colorspace_settings.name = 'Non-Color'
                         
